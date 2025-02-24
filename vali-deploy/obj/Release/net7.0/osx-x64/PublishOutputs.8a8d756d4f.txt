@@ -1,0 +1,2 @@
+/Users/isw21/RiderProjects/vali-deploy/vali-deploy/bin/Release/net7.0/osx-x64/publish/vali-deploy.pdb
+/Users/isw21/RiderProjects/vali-deploy/vali-deploy/bin/Release/net7.0/osx-x64/publish/vali-deploy

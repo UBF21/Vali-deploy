@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "vali-deploy", "vali-deploy\vali-deploy.csproj", "{737A7AF3-CCFD-45E1-8F84-2C5236821EEE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{737A7AF3-CCFD-45E1-8F84-2C5236821EEE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{737A7AF3-CCFD-45E1-8F84-2C5236821EEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{737A7AF3-CCFD-45E1-8F84-2C5236821EEE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{737A7AF3-CCFD-45E1-8F84-2C5236821EEE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
