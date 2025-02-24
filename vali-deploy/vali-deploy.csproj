@@ -6,14 +6,22 @@
                 <RootNamespace>vali_deploy</RootNamespace>
                 <ImplicitUsings>enable</ImplicitUsings>
                 <Nullable>enable</Nullable>
-                <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+                <RuntimeIdentifiers>osx-x64;osx-arm64;linux-x64;win-x64</RuntimeIdentifiers>
                 <PublishSingleFile>true</PublishSingleFile>
                 <ApplicationIcon>logo.ico</ApplicationIcon>
+
+                <Authors>Felipe Rafael Montenegro Morriberon</Authors>
+                <Description>CLI tool that automates the configuration and publishing of .NET projects, including Web APIs and other applications compatible with 'dotnet publish'. It simplifies the deployment process by generating the publish output automatically.</Description>
+                <PackageTags>vali_deploy;consola;herramienta</PackageTags>
+                <RepositoryUrl>https://github.com/UBF21/Vali-deploy</RepositoryUrl>
+                <Version>1.0.0</Version>
+                <AssemblyVersion>1.0.0.0</AssemblyVersion>
+                <FileVersion>1.0.0.0</FileVersion>
+                <Copyright>© 2025 Felipe Rafael M.M</Copyright>
+                
             </PropertyGroup>
         
             <ItemGroup>
-              <PackageReference Include="EPPlus.Core" Version="1.5.4" />
-              <PackageReference Include="PromptPlus" Version="4.2.0" />
               <PackageReference Include="Spectre.Console" Version="0.49.1" />
               <PackageReference Include="Spectre.Console.Cli" Version="0.49.1" />
             </ItemGroup>

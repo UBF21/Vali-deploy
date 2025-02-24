@@ -19,7 +19,7 @@ public static class MenuManager
 
         while (running)
         {
-            Console.Clear();
+            AnsiConsole.Clear();  // Limpia todo lo que Spectre.Console imprimió
             
             AnsiConsole.Write( new Rule());
             AnsiConsole.Write(new Rule("[red] Developed by [yellow]Felipe Rafael M.M[/] [/]"));
@@ -29,8 +29,8 @@ public static class MenuManager
 
             // Mostrar el título y el gráfico de barras
             var gridHeader = new Grid();
-            gridHeader.AddColumn(new GridColumn().LeftAligned());
             gridHeader.AddColumn(new GridColumn().RightAligned());
+            gridHeader.AddColumn(new GridColumn().LeftAligned());
 
             gridHeader.AddRow(new FigletText("Vali-Deploy").LeftJustified().Color(Color.Yellow), barChart);
             AnsiConsole.Write(gridHeader);
@@ -71,7 +71,7 @@ public static class MenuManager
                     break;
             }
 
-            if (option == "Add Project" || option == "Remove Project")
+            if (option == "Remove Project")
             {
                 AnsiConsole.MarkupLine(":hand_with_fingers_splayed: Press any key to continue...");
                 Console.ReadKey(true);
@@ -82,18 +82,23 @@ public static class MenuManager
     private static Task AddProjectAsync()
     {
         // Solicitar el nombre del proyecto
-        var projectName = AnsiConsole.Ask<string>("Enter the project name:");
+        string projectName;
+        while (true)
+        {
+            projectName = AnsiConsole.Ask<string>("Enter the project name (or type 'done' to cancel):");
+            if (projectName.ToLower() == "done") return Task.CompletedTask;
+            if (!string.IsNullOrWhiteSpace(projectName)) break;
+            AnsiConsole.MarkupLine("[red]Project name cannot be empty.[/]");
+        }
 
         // Solicitar la ruta del proyecto y validar que exista
         string projectPath;
         while (true)
         {
             projectPath = AnsiConsole.Ask<string>("Enter the project path:");
-            if (Directory.Exists(projectPath))
-            {
-                break; // La ruta es válida, salir del bucle
-            }
-
+            if (projectPath.ToLower() == "done") return Task.CompletedTask;
+            if (Directory.Exists(projectPath)) break; // La ruta es válida, salir del bucle
+            
             AnsiConsole.MarkupLine($"[red]:cross_mark: The project path does not exist: {projectPath}[/]");
             AnsiConsole.MarkupLine("Please enter a valid path.");
         }
@@ -239,7 +244,7 @@ public static class MenuManager
             }
 
             await ExecuteCommandSubProject(project, selectedSubProject, projectName);
-            return true; // Regresar al menú principal después de ejecutar
+            return true;
         }
     }
 
@@ -252,7 +257,7 @@ public static class MenuManager
         await CommandExecutor.RunCommandsAsync(subProjectPathFull);
 
         AnsiConsole.MarkupLine("Press any key to continue...");
-        await Task.Run(() => Console.ReadKey(true)); // Espera de forma asíncrona la pulsación de la tecla
+        await Task.Run(() => Console.ReadKey(true));
         await StartAsync();
     }
 }

@@ -1,13 +1,8 @@
-﻿using System.Diagnostics;
-using System.Text.Json;
-using Spectre.Console;
+﻿using Spectre.Console;
 using vali_deploy.Managers;
-using vali_deploy.Models;
-using vali_deploy.Utils;
 
 try
 {
-    // Iniciar el menú principal
     await MenuManager.StartAsync();
 }
 catch (Exception ex)

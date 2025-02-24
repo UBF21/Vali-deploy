@@ -10,7 +10,7 @@ public static class ChartManager
      > projects)
             {
                 var barChart = new BarChart()
-                    .Width(60)
+                    .Width(100)
                     .Label("[green bold underline]Number of Projects[/]")
                     .CenterLabel();
     

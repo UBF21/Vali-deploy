@@ -64,13 +64,12 @@ namespace vali_deploy.Managers
         public static void AddProject(string name, Project project)
         {
             var projects = LoadOrCreateConfig();
-            if (projects.ContainsKey(name))
+            if (!projects.TryAdd(name, project))
             {
                 AnsiConsole.MarkupLine($"[yellow]:warning: Project '{name}' already exists.[/]");
                 return;
             }
 
-            projects[name] = project;
             SaveConfig(projects);
             AnsiConsole.MarkupLine($"[green]Project '{name}' added successfully.[/]");
         }
