@@ -1,11 +1,12 @@
 ﻿using System.Diagnostics;
+using System.IO.Compression;
 using Spectre.Console;
 
 namespace vali_deploy.Managers;
 
 public static class CommandExecutor
 {
-    public static async Task RunCommandsAsync(string projectPath)
+    public static async Task RunCommandsAsync(string projectName,string subProjectName,string projectPath)
     {
         if (!Directory.Exists(projectPath))
         {
@@ -84,9 +85,26 @@ public static class CommandExecutor
                 {
                     AnsiConsole.MarkupLine("[yellow]:information: This is not a Web API project. Skipping cleanup of appsettings.[/]");
                 }
-
                 return Task.CompletedTask;
             });
+        
+        // Crear el archivo ZIP con el nombre deseado
+        string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
+        string zipFileName = $"publish_{projectName}_{subProjectName}_{timestamp}.zip";
+        // Guardamos el ZIP en el directorio padre de la carpeta publish
+        string parentFolder = Directory.GetParent(publishFolder)?.FullName ?? publishFolder;
+        string zipFilePath = Path.Combine(parentFolder, zipFileName);
+        
+        try
+        {
+            ZipFile.CreateFromDirectory(publishFolder, zipFilePath);
+            AnsiConsole.MarkupLine($"[green]:check_mark: Packaging complete: {Markup.Escape(zipFilePath)}[/]");
+        }
+        catch (Exception ex)
+        {
+            AnsiConsole.MarkupLine($"[red]Packaging error: {Markup.Escape(ex.Message)}[/]");
+        }
+
     }
 
     private static async Task ExecuteCommandAsync(string command, string workingDirectory)

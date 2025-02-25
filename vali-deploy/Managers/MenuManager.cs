@@ -1,10 +1,5 @@
 ﻿using Spectre.Console;
 using vali_deploy.Models;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace vali_deploy.Managers;
 
@@ -12,23 +7,21 @@ public static class MenuManager
 {
     public static async Task StartAsync()
     {
-        var projects = ProjectManager.LoadOrCreateConfig();
-        var barChart = ChartManager.CreateBarChart(projects);
+        Dictionary<string,Project> projects = ProjectManager.LoadOrCreateConfig();
+        BarChart barChart = ChartManager.CreateBarChart(projects);
 
         bool running = true;
 
         while (running)
         {
-            AnsiConsole.Clear();  // Limpia todo lo que Spectre.Console imprimió
+            AnsiConsole.Clear();
             
-            AnsiConsole.Write( new Rule());
+            AnsiConsole.Write(new Rule());
             AnsiConsole.Write(new Rule("[red] Developed by [yellow]Felipe Rafael M.M[/] [/]"));
-            AnsiConsole.Write( new Rule());
+            AnsiConsole.Write(new Rule());
             AnsiConsole.WriteLine();
-
-
-            // Mostrar el título y el gráfico de barras
-            var gridHeader = new Grid();
+            
+            Grid gridHeader = new Grid();
             gridHeader.AddColumn(new GridColumn().RightAligned());
             gridHeader.AddColumn(new GridColumn().LeftAligned());
 
@@ -36,17 +29,15 @@ public static class MenuManager
             AnsiConsole.Write(gridHeader);
 
             AnsiConsole.WriteLine();
-            
+
             // Menú principal
             var option = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
                     .Title("What do you want to do?")
-                    .AddChoices(new[] { "Add Project", "Remove Project", "Show Projects", "[chartreuse3_1]Exit[/]" })
-                
+                    .AddChoices("Add Project", "Remove Project", "Show Projects", "[chartreuse3_1]Exit[/]")
             );
-            
 
-            
+
             switch (option)
             {
                 case "Add Project":
@@ -67,7 +58,7 @@ public static class MenuManager
 
                 case "[chartreuse3_1]Exit[/]":
                     running = false;
-                    AnsiConsole.MarkupLine("[yellow]Leaving...[/]");
+                    AnsiConsole.MarkupLine("[yellow] Leaving...[/]");
                     break;
             }
 
@@ -86,8 +77,10 @@ public static class MenuManager
         while (true)
         {
             projectName = AnsiConsole.Ask<string>("Enter the project name (or type 'done' to cancel):");
+            
             if (projectName.ToLower() == "done") return Task.CompletedTask;
             if (!string.IsNullOrWhiteSpace(projectName)) break;
+            
             AnsiConsole.MarkupLine("[red]Project name cannot be empty.[/]");
         }
 
@@ -96,15 +89,17 @@ public static class MenuManager
         while (true)
         {
             projectPath = AnsiConsole.Ask<string>("Enter the project path:");
+            
             if (projectPath.ToLower() == "done") return Task.CompletedTask;
             if (Directory.Exists(projectPath)) break; // La ruta es válida, salir del bucle
-            
-            AnsiConsole.MarkupLine($"[red]:cross_mark: The project path does not exist: {projectPath}[/]");
+
+            AnsiConsole.MarkupLine(
+                $"[red]:cross_mark: The project path does not exist: {Markup.Escape(projectPath)} [/]");
             AnsiConsole.MarkupLine("Please enter a valid path.");
         }
 
         // Pedir al usuario que ingrese los subproyectos (APIs)
-        var subProjects = new List<SubProject>();
+        List<SubProject> subProjects = new List<SubProject>();
         bool addMoreSubProjects = true;
 
         while (addMoreSubProjects)
@@ -130,25 +125,22 @@ public static class MenuManager
                     subProjectPath = AnsiConsole.Ask<string>("Enter the subproject path:");
                     string fullPathSubProject = Path.Combine(projectPath, subProjectPath);
 
-                    if (Directory.Exists(fullPathSubProject))
-                    {
-                        break; // La ruta es válida, salir del bucle
-                    }
+                    if (Directory.Exists(fullPathSubProject)) break;
 
                     AnsiConsole.MarkupLine(
-                        $"[red]:cross_mark: The subproject path does not exist: {subProjectPath}[/]");
+                        $"[red]:cross_mark: The subproject path does not exist: {Markup.Escape(subProjectPath)} [/]");
                     AnsiConsole.MarkupLine("Please enter a valid path.");
                 }
 
                 // Agregar el subproyecto a la lista
                 subProjects.Add(new SubProject { Name = subProjectName, Path = subProjectPath });
-                AnsiConsole.MarkupLine($"[green]Subproject '{subProjectName}' added.[/]");
+                AnsiConsole.MarkupLine($"[green]Subproject '{Markup.Escape(subProjectName)}' added.[/]");
             }
         }
 
         // Agregar el proyecto con los subproyectos
         ProjectManager.AddProject(projectName, new Project { Path = projectPath, SubProjects = subProjects });
-        AnsiConsole.MarkupLine($"[green]Project '{projectName}' added successfully![/]");
+        AnsiConsole.MarkupLine($"[green]Project '{Markup.Escape(projectName)}' added successfully![/]");
         return Task.CompletedTask;
     }
 
@@ -189,17 +181,12 @@ public static class MenuManager
                     .AddChoices(projects.Keys.Append("[chartreuse3_1]Back to Main Menu[/]"))
             );
 
-            if (projectName == "[chartreuse3_1]Back to Main Menu[/]")
-            {
-                return;
-            }
+            if (projectName == "[chartreuse3_1]Back to Main Menu[/]") return;
 
             // Entrar al menú de subproyectos del proyecto seleccionado
             bool exitToMainMenu = await ShowSubProjectsAsync(projects[projectName], projectName);
-            if (exitToMainMenu)
-            {
-                break; // Salir del bucle y regresar al menú principal
-            }
+            
+            if (exitToMainMenu) break;
         }
     }
 
@@ -209,7 +196,8 @@ public static class MenuManager
         {
             if (project.SubProjects.Count == 0)
             {
-                AnsiConsole.MarkupLine($"[yellow]:warning: No subprojects found for project '{projectName}'.[/]");
+                AnsiConsole.MarkupLine(
+                    $"[yellow]:warning: No subprojects found for project '{Markup.Escape(projectName)}'.[/]");
                 AnsiConsole.MarkupLine("Press any key to return to the projects menu...");
                 Console.ReadKey();
                 return false; // Regresar al menú de proyectos
@@ -227,7 +215,8 @@ public static class MenuManager
             var subProjectName = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
                     .Title($"Select a subproject for project '{projectName}'")
-                    .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[chartreuse3_1]Back to Projects Menu[/]"))
+                    .AddChoices(project.SubProjects.Select(sp => sp.Name)
+                        .Append("[chartreuse3_1]Back to Projects Menu[/]"))
             );
 
             if (subProjectName == "[chartreuse3_1]Back to Projects Menu[/]")
@@ -251,10 +240,11 @@ public static class MenuManager
     private static async Task ExecuteCommandSubProject(Project project, SubProject subProject, string projectName)
     {
         string subProjectPathFull = Path.Combine(project.Path, subProject.Path);
+        
         AnsiConsole.MarkupLine(
-            $"[green]Running publish for subproject '{subProject.Name}' in project '{projectName}'...[/]");
-    
-        await CommandExecutor.RunCommandsAsync(subProjectPathFull);
+            $"[green] Running publish for subproject '{Markup.Escape(subProject.Name)}' in project '{Markup.Escape(projectName)}'...[/]");
+
+        await CommandExecutor.RunCommandsAsync(projectName, subProject.Name, subProjectPathFull);
 
         AnsiConsole.MarkupLine("Press any key to continue...");
         await Task.Run(() => Console.ReadKey(true));
