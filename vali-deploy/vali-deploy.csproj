@@ -15,10 +15,11 @@
                 <PackageTags>vali_deploy;consola;herramienta</PackageTags>
                 <RepositoryUrl>https://github.com/UBF21/Vali-deploy</RepositoryUrl>
                 <Version>1.0.0</Version>
-                <AssemblyVersion>1.0.0.0</AssemblyVersion>
-                <FileVersion>1.0.0.0</FileVersion>
+                <AssemblyVersion>1.0.0</AssemblyVersion>
+                <FileVersion>1.0.0</FileVersion>
                 <Copyright>© 2025 Felipe Rafael M.M</Copyright>
-                
+                <PublishExecutableName>Vali-Deploy_$(Version)</PublishExecutableName>
+                <AssemblyName>Vali-Deploy_$(Version)</AssemblyName>
             </PropertyGroup>
         
             <ItemGroup>
