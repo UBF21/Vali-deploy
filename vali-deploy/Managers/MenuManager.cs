@@ -1,5 +1,7 @@
-﻿using Spectre.Console;
+﻿using System.Reflection;
+using Spectre.Console;
 using vali_deploy.Models;
+using vali_deploy.Utils;
 
 namespace vali_deploy.Managers;
 
@@ -16,10 +18,15 @@ public static class MenuManager
         {
             AnsiConsole.Clear();
             
+            var currentVersion = Util.GetCurrentVersion();
+            
             AnsiConsole.Write(new Rule());
             AnsiConsole.Write(new Rule("[red] Developed by [yellow]Felipe Rafael M.M[/] [/]"));
             AnsiConsole.Write(new Rule());
+            AnsiConsole.Write(new Rule($"[bold grey] Version: {currentVersion}[/]").RightJustified());
+            AnsiConsole.Write(new Rule());
             AnsiConsole.WriteLine();
+
             
             Grid gridHeader = new Grid();
             gridHeader.AddColumn(new GridColumn().RightAligned());
@@ -241,8 +248,7 @@ public static class MenuManager
     {
         string subProjectPathFull = Path.Combine(project.Path, subProject.Path);
         
-        AnsiConsole.MarkupLine(
-            $"[green] Running publish for subproject '{Markup.Escape(subProject.Name)}' in project '{Markup.Escape(projectName)}'...[/]");
+        AnsiConsole.MarkupLine($"[green] Running publish for subproject '{Markup.Escape(subProject.Name)}' in project '{Markup.Escape(projectName)}'...[/]");
 
         await CommandExecutor.RunCommandsAsync(projectName, subProject.Name, subProjectPathFull);
 

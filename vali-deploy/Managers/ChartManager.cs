@@ -16,7 +16,7 @@ public static class ChartManager
     
                 foreach (var project in projects)
                 {
-                    string projectName = project.Key; // Nombre del proyecto
+                    string projectName = project.Key.Trim(); // Nombre del proyecto
                     int actionCount = project.Value.SubProjects.Count; // Número de acciones
     
                     // Agregar el proyecto al gráfico de barras

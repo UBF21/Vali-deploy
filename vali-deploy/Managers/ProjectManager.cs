@@ -64,7 +64,7 @@ namespace vali_deploy.Managers
         public static void AddProject(string name, Project project)
         {
             var projects = LoadOrCreateConfig();
-            if (!projects.TryAdd(name, project))
+            if (!projects.TryAdd(name.Trim(), project))
             {
                 AnsiConsole.MarkupLine($"[yellow]:warning: Project '{name}' already exists.[/]");
                 return;
@@ -80,7 +80,7 @@ namespace vali_deploy.Managers
         public static void RemoveProject(string name)
         {
             var projects = LoadOrCreateConfig();
-            if (!projects.ContainsKey(name))
+            if (!projects.ContainsKey(name.Trim()))
             {
                 AnsiConsole.MarkupLine($"[yellow]:warning: Project '{name}' does not exist.[/]");
                 return;
