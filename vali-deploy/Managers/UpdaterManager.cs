@@ -19,6 +19,7 @@ public static class UpdaterManager
             var updateInfo = JsonSerializer.Deserialize<UpdateInfo>(jsonResponse,
                 options: new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
+            //updateInfo.Version
             if (updateInfo != null && Util.IsNewerVersion(updateInfo.Version, currentVersion))
             {
                 AnsiConsole.MarkupLine($"[green]New version available: {Markup.Escape(updateInfo.Version)}[/]");
@@ -64,18 +65,19 @@ public static class UpdaterManager
     }
 
     // Método que descarga el ZIP, lo extrae y reemplaza el ejecutable actual.
-    public static async Task DownloadAndInstallAsync(string downloadUrl)
+    public static async Task DownloadAndInstallAsync(string downloadUrl, string newVersion)
     {
-        // Obtener la carpeta donde está el ejecutable actual
+        // Obtener la carpeta donde está el ejecutable actual.
         string currentExePath = Process.GetCurrentProcess().MainModule?.FileName ?? string.Empty;
         string exeDirectory = Path.GetDirectoryName(currentExePath) ?? Environment.CurrentDirectory;
 
-        // Definir la ruta del ZIP (descargado sin versión en su nombre)
-        string zipPath = Path.Combine(exeDirectory, "Vali-Deploy.zip");
-        // Ruta temporal de extracción
+        // Derivar el nombre del ZIP a partir de la URL (se conserva el nombre real del archivo descargado).
+        string downloadedZipFileName = Path.GetFileName(new Uri(downloadUrl).LocalPath);
+        string zipPath = Path.Combine(exeDirectory, downloadedZipFileName);
+        // Ruta temporal de extracción.
         string tempExtractPath = Path.Combine(exeDirectory, "TempUpdate");
 
-        // Mostrar estado de descarga
+        // Estado de descarga.
         await AnsiConsole.Status()
             .Spinner(Spinner.Known.Dots12)
             .StartAsync("Downloading new version...", async ctx =>
@@ -86,7 +88,7 @@ public static class UpdaterManager
             });
         AnsiConsole.MarkupLine("[green]:check_mark: Download completed.[/]");
 
-        // Mostrar estado de extracción
+        // Estado de extracción.
         await AnsiConsole.Status()
             .Spinner(Spinner.Known.Dots12)
             .StartAsync("Extracting new version...", async ctx =>
@@ -96,29 +98,49 @@ public static class UpdaterManager
                 Directory.CreateDirectory(tempExtractPath);
                 ZipFile.ExtractToDirectory(zipPath, tempExtractPath);
                 File.Delete(zipPath);
+                await Task.CompletedTask;
             });
         AnsiConsole.MarkupLine("[green]:check_mark: Extraction completed.[/]");
 
-        // Se asume que dentro de TempUpdate está el nuevo ejecutable,
-        // el cual ya lleva en su nombre la versión, ej: "Vali-Deploy_1.2.0.exe"
-        string newExeFileName = Path.GetFileName(currentExePath);
-        string newExePath = Path.Combine(tempExtractPath, newExeFileName);
+        // Calcular el nombre esperado del nuevo ejecutable según la versión.
+        string expectedNewExeFileName;
+        if (OperatingSystem.IsWindows())
+            expectedNewExeFileName = $"Vali-Deploy_{newVersion}.exe";
+        else
+            expectedNewExeFileName = $"Vali-Deploy_{newVersion}";
+
+        string newExePath = Path.Combine(tempExtractPath, expectedNewExeFileName);
+        AnsiConsole.MarkupLine($"[green]Expected new executable: {Markup.Escape(expectedNewExeFileName)}[/]");
+        AnsiConsole.MarkupLine($"[green]Looking for new executable at: {Markup.Escape(newExePath)}[/]");
+
         if (!File.Exists(newExePath))
         {
             AnsiConsole.MarkupLine("[red]:cross_mark: The new executable was not found in the extracted folder.[/]");
             return;
         }
 
-        // Mostrar estado de instalación
+        if (!OperatingSystem.IsWindows())
+        {
+            AnsiConsole.MarkupLine("[yellow]Removing quarantine attribute and setting execution permissions...[/]");
+            await Process.Start("xattr", $"-rd com.apple.quarantine \"{newExePath}\"").WaitForExitAsync();
+        }
+
+        // Estado de instalación.
         await AnsiConsole.Status()
             .Spinner(Spinner.Known.Dots12)
             .StartAsync("Installing new version...", async ctx =>
             {
                 // Reemplazar el ejecutable actual con el nuevo (sobrescribiendo)
-                File.Copy(newExePath, currentExePath, true);
+                string targetNewExePath = Path.Combine(exeDirectory, expectedNewExeFileName);
+                File.Copy(newExePath, targetNewExePath, true);
                 Directory.Delete(tempExtractPath, true);
+                await Task.CompletedTask;
+                Process.Start(new ProcessStartInfo { FileName = targetNewExePath, UseShellExecute = false });
+                Environment.Exit(0);
             });
-        AnsiConsole.MarkupLine("[green]:check_mark: New version installed in the same location.[/]");
+
+        AnsiConsole.MarkupLine(
+            $"[green]:check_mark: New version installed: {Markup.Escape(expectedNewExeFileName)}[/]");
     }
 
     // Lanza la nueva versión y cierra la aplicación actual
