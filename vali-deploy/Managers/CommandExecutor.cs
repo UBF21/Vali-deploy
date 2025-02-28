@@ -1,12 +1,13 @@
 ﻿using System.Diagnostics;
 using System.IO.Compression;
 using Spectre.Console;
+using vali_deploy.Models;
 
 namespace vali_deploy.Managers;
 
 public static class CommandExecutor
 {
-    public static async Task RunCommandsAsync(string projectName,string subProjectName,string projectPath)
+    public static async Task RunCommandsAsync(string projectName,string subProjectName,string projectPath,SubProject subProject)
     {
         if (!Directory.Exists(projectPath))
         {
@@ -53,39 +54,37 @@ public static class CommandExecutor
         
         await AnsiConsole.Status()
             .Spinner(Spinner.Known.Star)
-            .StartAsync("Clearing the publication directory...", ctx =>
+            .StartAsync("Clearing the publication directory...", async ctx =>
             {
-                if (isWebApiProject)
+                // Procesar los archivos y carpetas a omitir desde OmitFiles
+                if (subProject != null && subProject.OmitFiles != null && subProject.OmitFiles.Any())
                 {
-                    AnsiConsole.MarkupLine("[yellow]:information: This is a Web API project. Cleaning up appsettings...[/]");
-
-                    List<string> appSettingsFiles = new List<string>
+                    AnsiConsole.MarkupLine("[yellow]:information: Cleaning up omitted files and folders...[/]");
+                    foreach (var item in subProject.OmitFiles)
                     {
-                        Path.Combine(publishFolder, "appsettings.json"),
-                        Path.Combine(publishFolder, "appsettings.Development.json")
-                    };
+                        string fullPath = Path.Combine(publishFolder, item);
 
-                    foreach (var file in appSettingsFiles)
-                    {
-                        if (File.Exists(file))
+                        if (File.Exists(fullPath))
                         {
-                            File.Delete(file);
-                            AnsiConsole.MarkupLine($"[green]:check_mark: Deleted: {Markup.Escape(file)}[/]");
+                            File.Delete(fullPath);
+                            AnsiConsole.MarkupLine($"[green]:check_mark: Deleted file: {Markup.Escape(fullPath)}[/]");
                         }
-                    }
-
-                    string wwwRootPath = Path.Combine(publishFolder, "wwwroot");
-                    if (Directory.Exists(wwwRootPath))
-                    {
-                        Directory.Delete(wwwRootPath, true);
-                        AnsiConsole.MarkupLine($"[green]:check_mark: Deleted: {Markup.Escape(wwwRootPath)}[/]");
+                        else if (Directory.Exists(fullPath))
+                        {
+                            Directory.Delete(fullPath, true); // Elimina la carpeta y su contenido
+                            AnsiConsole.MarkupLine($"[green]:check_mark: Deleted folder: {Markup.Escape(fullPath)}[/]");
+                        }
+                        else
+                        {
+                            AnsiConsole.MarkupLine($"[yellow]:warning: Item not found in publish folder: {Markup.Escape(fullPath)}[/]");
+                        }
                     }
                 }
                 else
                 {
-                    AnsiConsole.MarkupLine("[yellow]:information: This is not a Web API project. Skipping cleanup of appsettings.[/]");
+                    AnsiConsole.MarkupLine("[yellow]:information: No files or folders to omit. Skipping cleanup.[/]");
                 }
-                return Task.CompletedTask;
+                await Task.CompletedTask;
             });
         
         // Crear el archivo ZIP con el nombre deseado
@@ -99,6 +98,7 @@ public static class CommandExecutor
         {
             ZipFile.CreateFromDirectory(publishFolder, zipFilePath);
             AnsiConsole.MarkupLine($"[green]:check_mark: Packaging complete: {Markup.Escape(zipFilePath)}[/]");
+            OpenFileExplorer(parentFolder);
         }
         catch (Exception ex)
         {
@@ -170,4 +170,48 @@ public static class CommandExecutor
         return File.Exists(programCsPath) || File.Exists(startupCsPath);
     }
     
+    private static void OpenFileExplorer(string folderPath)
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                // En Windows, usar explorer.exe para abrir la carpeta
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"\"{folderPath}\"",
+                    UseShellExecute = true
+                });
+            }
+            else if (OperatingSystem.IsMacOS())
+            {
+                // En macOS, usar 'open' para abrir Finder
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "open",
+                    Arguments = $"\"{folderPath}\"",
+                    UseShellExecute = true
+                });
+            }
+            else if (OperatingSystem.IsLinux())
+            {
+                // En Linux, intentar con xdg-open (común en la mayoría de distribuciones)
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "xdg-open",
+                    Arguments = $"\"{folderPath}\"",
+                    UseShellExecute = true
+                });
+            }
+            else
+            {
+                AnsiConsole.MarkupLine("[yellow]:warning: Unsupported operating system. Cannot open file explorer.[/]");
+            }
+        }
+        catch (Exception ex)
+        {
+            AnsiConsole.MarkupLine($"[red]Error opening file explorer: {Markup.Escape(ex.Message)}[/]");
+        }
+    }
 }

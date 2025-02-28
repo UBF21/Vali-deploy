@@ -16,7 +16,13 @@ try
         AnsiConsole.Write(new Rule());
         AnsiConsole.Write(new FigletText("!New version available!").Centered().Color(Color.Yellow));
         AnsiConsole.Write(new Rule());
+        AnsiConsole.Write(new Rule($" NEW : {updateInfo.Version}").RightJustified());
         AnsiConsole.Write(new Rule());
+        AnsiConsole.WriteLine();
+        AnsiConsole.Write(new Panel($"{updateInfo.ReleaseNotes}")
+            .Border(BoxBorder.Rounded)
+            .BorderColor(Color.Aquamarine3)
+            .Header($"Release - {Markup.Escape(updateInfo.ReleaseDate)}\t"));
         AnsiConsole.WriteLine();
         
         bool userWantsUpdate = AnsiConsole.Confirm("[yellow]Do you want to upgrade now?[/]");
