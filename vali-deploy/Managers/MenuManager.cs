@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using Spectre.Console;
+﻿using Spectre.Console;
 using vali_deploy.Models;
 using vali_deploy.Utils;
 
@@ -9,7 +8,7 @@ public static class MenuManager
 {
     public static async Task StartAsync()
     {
-        Dictionary<string,Project> projects = ProjectManager.LoadOrCreateConfig();
+        Dictionary<string, Project> projects = ProjectManager.LoadOrCreateConfig();
         BarChart barChart = ChartManager.CreateBarChart(projects);
 
         bool running = true;
@@ -17,9 +16,9 @@ public static class MenuManager
         while (running)
         {
             AnsiConsole.Clear();
-            
+
             var currentVersion = Util.GetCurrentVersion();
-            
+
             AnsiConsole.Write(new Rule());
             AnsiConsole.Write(new Rule("[red] Developed by [yellow]Felipe Rafael M.M[/] [/]"));
             AnsiConsole.Write(new Rule());
@@ -27,7 +26,7 @@ public static class MenuManager
             AnsiConsole.Write(new Rule());
             AnsiConsole.WriteLine();
 
-            
+
             Grid gridHeader = new Grid();
             gridHeader.AddColumn(new GridColumn().RightAligned());
             gridHeader.AddColumn(new GridColumn().LeftAligned());
@@ -41,7 +40,7 @@ public static class MenuManager
             var option = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
                     .Title("What do you want to do?")
-                    .AddChoices("Add Project", "Remove Project", "Show Projects", "[chartreuse3_1]Exit[/]")
+                    .AddChoices("Add Project", "Remove Project", "Show Projects","Manage Project Files to omit", "[chartreuse3_1]Exit[/]")
             );
 
 
@@ -63,13 +62,19 @@ public static class MenuManager
                     await ShowProjectsAsync();
                     break;
 
+                case "Manage Project Files to omit":
+                    await ManageProjectFilesToOmitAsync(projects);
+                    projects = ProjectManager.LoadOrCreateConfig();
+                    barChart = ChartManager.CreateBarChart(projects);
+                    break;
+
                 case "[chartreuse3_1]Exit[/]":
                     running = false;
                     AnsiConsole.MarkupLine("[yellow] Leaving...[/]");
                     break;
             }
 
-            if (option == "Remove Project")
+            if (option == "Remove Project" )
             {
                 AnsiConsole.MarkupLine(":hand_with_fingers_splayed: Press any key to continue...");
                 Console.ReadKey(true);
@@ -84,10 +89,10 @@ public static class MenuManager
         while (true)
         {
             projectName = AnsiConsole.Ask<string>("Enter the project name (or type 'done' to cancel):");
-            
+
             if (projectName.ToLower() == "done") return Task.CompletedTask;
             if (!string.IsNullOrWhiteSpace(projectName)) break;
-            
+
             AnsiConsole.MarkupLine("[red]Project name cannot be empty.[/]");
         }
 
@@ -96,7 +101,7 @@ public static class MenuManager
         while (true)
         {
             projectPath = AnsiConsole.Ask<string>("Enter the project path:");
-            
+
             if (projectPath.ToLower() == "done") return Task.CompletedTask;
             if (Directory.Exists(projectPath)) break; // La ruta es válida, salir del bucle
 
@@ -192,7 +197,7 @@ public static class MenuManager
 
             // Entrar al menú de subproyectos del proyecto seleccionado
             bool exitToMainMenu = await ShowSubProjectsAsync(projects[projectName], projectName);
-            
+
             if (exitToMainMenu) break;
         }
     }
@@ -244,11 +249,140 @@ public static class MenuManager
         }
     }
 
+    private static async Task ManageProjectFilesToOmitAsync(Dictionary<string, Project> projects)
+    {
+        while (true)
+        {
+            if (projects.Count == 0)
+            {
+                AnsiConsole.MarkupLine("[yellow]:warning: No projects found.[/]");
+                return;
+            }
+
+            var projectName = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("Select a project to manage files to omit")
+                    .AddChoices(projects.Keys.Append("[chartreuse3_1]Back to Main Menu[/]"))
+            );
+
+            if (projectName == "[chartreuse3_1]Back to Main Menu[/]") return;
+
+            var project = projects[projectName];
+            await ManageSubProjectFilesAsync(project, projectName, projects);
+        }
+    }
+
+    private static async Task ManageSubProjectFilesAsync(Project project, string projectName,
+        Dictionary<string, Project> projects)
+    {
+        while (true)
+        {
+            if (project.SubProjects.Count == 0)
+            {
+                AnsiConsole.MarkupLine(
+                    $"[yellow]:warning: No subprojects found for project '{Markup.Escape(projectName)}'.[/]");
+                     await Task.CompletedTask;
+            }
+
+            var subProjectName = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title($"Select a subproject for project '{projectName}' to manage files to omit")
+                    .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[chartreuse3_1]Back to Projects[/]"))
+            );
+
+            if (subProjectName == "[chartreuse3_1]Back to Projects[/]")
+            {
+                await Task.CompletedTask;
+                return;
+            }
+
+            var selectedSubProject = project.SubProjects.FirstOrDefault(sp => sp.Name == subProjectName);
+            if (selectedSubProject == null)
+            {
+                AnsiConsole.MarkupLine("[red]:cross_mark: Subproject not found.[/]");
+                continue;
+            }
+
+            // Mostrar archivos actuales a omitir
+            AnsiConsole.MarkupLine(
+                $"[yellow]Current files to omit for subproject '{Markup.Escape(subProjectName)}':[/]");
+            if (selectedSubProject.OmitFiles.Count == 0)
+            {
+                AnsiConsole.MarkupLine("[grey]No files specified.[/]");
+                await Task.Delay(1500); // Esperar 2 segundos antes de volver al menú de subproyectos
+                return;
+            }
+            else
+            {
+                foreach (var file in selectedSubProject.OmitFiles)
+                {
+                    AnsiConsole.MarkupLine($"- {Markup.Escape(file)}");
+                }
+            }
+
+            // Menú para agregar o eliminar archivos
+            var action = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("What do you want to do?")
+                    .AddChoices("Add file to omit", "Remove file from omit list",
+                        "[chartreuse3_1]Back to Subprojects[/]")
+            );
+
+            switch (action)
+            {
+                case "Add file to omit":
+                    string fileToAdd = AnsiConsole.Ask<string>("Enter the file name to omit (e.g., 'example.txt'):");
+                    if (!string.IsNullOrWhiteSpace(fileToAdd) && !selectedSubProject.OmitFiles.Contains(fileToAdd))
+                    {
+                        selectedSubProject.OmitFiles.Add(fileToAdd);
+                        ProjectManager.SaveConfig(projects); // Guardar cambios
+                        AnsiConsole.MarkupLine($"[green]File '{Markup.Escape(fileToAdd)}' added to omit list.[/]");
+                    }
+                    else
+                    {
+                        AnsiConsole.MarkupLine("[red]Invalid or duplicate file name.[/]");
+                    }
+
+                    break;
+
+                case "Remove file from omit list":
+                    if (selectedSubProject.OmitFiles.Count == 0)
+                    {
+                        AnsiConsole.MarkupLine("[yellow]No files to remove.[/]");
+                        await Task.Delay(1500); // Esperar 2 segundos antes de volver al menú de subproyectos
+                        return;
+                    }
+                    else
+                    {
+                        var fileToRemove = AnsiConsole.Prompt(
+                            new SelectionPrompt<string>()
+                                .Title("Select a file 'to' remove 'from' omit list")
+                                .AddChoices(selectedSubProject.OmitFiles.Append("[chartreuse3_1]Cancel[/]"))
+                        );
+                        if (fileToRemove != "[chartreuse3_1]Cancel[/]")
+                        {
+                            selectedSubProject.OmitFiles.Remove(fileToRemove);
+                            ProjectManager.SaveConfig(projects); // Guardar cambios
+                            AnsiConsole.MarkupLine(
+                                $"[green]File '{Markup.Escape(fileToRemove)}' removed from omit list.[/]");
+                        }
+                    }
+
+                    break;
+
+                case "[chartreuse3_1]Back to Subprojects[/]":
+                    await Task.CompletedTask;
+                    return;
+            }
+        }
+    }
+
     private static async Task ExecuteCommandSubProject(Project project, SubProject subProject, string projectName)
     {
         string subProjectPathFull = Path.Combine(project.Path, subProject.Path);
-        
-        AnsiConsole.MarkupLine($"[green] Running publish for subproject '{Markup.Escape(subProject.Name)}' in project '{Markup.Escape(projectName)}'...[/]");
+
+        AnsiConsole.MarkupLine(
+            $"[green] Running publish for subproject '{Markup.Escape(subProject.Name)}' in project '{Markup.Escape(projectName)}'...[/]");
 
         await CommandExecutor.RunCommandsAsync(projectName, subProject.Name, subProjectPathFull);
 
