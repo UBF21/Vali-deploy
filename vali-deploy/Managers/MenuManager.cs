@@ -47,7 +47,10 @@ public static class MenuManager
                     await RemoveSubprojectsAsync();
                     UpdateProjectsAndChart();
                     break;
-
+                case "Manage Docker Projects":
+                    await ManageDockerProjectsAsync();
+                    UpdateProjectsAndChart();
+                    break;
                 case "[chartreuse3_1]Exit[/]":
                     running = false;
                     AnsiConsole.MarkupLine("[yellow] Leaving...[/]");
@@ -84,7 +87,8 @@ public static class MenuManager
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("What do you want to do?")
-                .AddChoices("Add Project", "Remove Project", "Show Projects", "Manage Project Files to omit", "Remove Subprojects", "[chartreuse3_1]Exit[/]")
+                .AddChoices("Add Project", "Remove Project", "Show Projects", "Manage Project Files to omit",
+                    "Remove Subprojects", "Manage Docker Projects", "[chartreuse3_1]Exit[/]")
         );
     }
 
@@ -140,24 +144,51 @@ public static class MenuManager
 
         while (addMoreSubProjects)
         {
-            var subProjectName = AnsiConsole.Ask<string>("Enter the subproject name (or type 'done' to finish):");
+            var subProjectName =
+                AnsiConsole.Ask<string>("Enter the subproject name (or type 'done' to return to main menu):");
             if (subProjectName.ToLower() == "done")
             {
                 if (subProjects.Count == 0)
                 {
-                    AnsiConsole.MarkupLine("[red]:warning: You must add at least one subproject.[/]");
-                    continue;
+                    AnsiConsole.MarkupLine(
+                        "[red]:warning: You must add at least one subproject. Returning to main menu without saving...[/]");
+                    return null;
                 }
+
                 addMoreSubProjects = false;
+                continue;
             }
-            else
+
+            string? subProjectPath = PromptSubProjectPath(projectPath);
+            if (subProjectPath == null) continue;
+
+            string? dockerfilePath =
+                AnsiConsole.Ask<string>("Enter the Dockerfile path (relative to subproject path, or 'skip' to omit):");
+            if (dockerfilePath.ToLower() == "skip")
             {
-                string? subProjectPath = PromptSubProjectPath(projectPath);
-                if (subProjectPath == null) continue;
-                subProjects.Add(new SubProject { Name = subProjectName, Path = subProjectPath });
-                AnsiConsole.MarkupLine($"[green]Subproject '{Markup.Escape(subProjectName)}' added.[/]");
+                dockerfilePath = null;
             }
+            else if (!string.IsNullOrEmpty(dockerfilePath))
+            {
+                string fullDockerfilePath = Path.Combine(projectPath, subProjectPath, dockerfilePath);
+                if (!File.Exists(fullDockerfilePath))
+                {
+                    AnsiConsole.MarkupLine(
+                        $"[yellow]:warning: Dockerfile not found at {Markup.Escape(fullDockerfilePath)}. Proceeding without Docker.[/]");
+                    dockerfilePath = null;
+                }
+            }
+
+            subProjects.Add(new SubProject
+            {
+                Name = subProjectName,
+                Path = subProjectPath,
+                DockerfilePath = dockerfilePath
+            });
+
+            AnsiConsole.MarkupLine($"[green]Subproject '{Markup.Escape(subProjectName)}' added.[/]");
         }
+
         return await Task.FromResult(subProjects.Count > 0 ? subProjects : null);
     }
 
@@ -169,7 +200,8 @@ public static class MenuManager
             if (subPath.ToLower() == "done") return null;
             var fullPath = Path.Combine(projectPath, subPath);
             if (Directory.Exists(fullPath)) return subPath;
-            AnsiConsole.MarkupLine($"[red]:cross_mark: The subproject path does not exist: {Markup.Escape(subPath)} [/]");
+            AnsiConsole.MarkupLine(
+                $"[red]:cross_mark: The subproject path does not exist: {Markup.Escape(subPath)} [/]");
             AnsiConsole.MarkupLine("Please enter a valid path.");
         }
     }
@@ -209,7 +241,8 @@ public static class MenuManager
             var project = _projects[projectName];
             if (project.SubProjects.Count == 0)
             {
-                AnsiConsole.MarkupLine($"[yellow]:warning: No subprojects found for project '{Markup.Escape(projectName)}'.[/]");
+                AnsiConsole.MarkupLine(
+                    $"[yellow]:warning: No subprojects found for project '{Markup.Escape(projectName)}'.[/]");
                 PauseForUserInput();
                 continue;
             }
@@ -223,9 +256,11 @@ public static class MenuManager
                 if (subProject != null)
                 {
                     project.SubProjects.Remove(subProject);
-                    AnsiConsole.MarkupLine($"[green]Subproject '{Markup.Escape(subProjectName)}' removed from project '{Markup.Escape(projectName)}'.[/]");
+                    AnsiConsole.MarkupLine(
+                        $"[green]Subproject '{Markup.Escape(subProjectName)}' removed from project '{Markup.Escape(projectName)}'.[/]");
                 }
             }
+
             ProjectManager.SaveConfig(_projects);
             PauseForUserInput();
             break;
@@ -245,7 +280,8 @@ public static class MenuManager
     {
         var selectedSubProjects = AnsiConsole.Prompt(
             new MultiSelectionPrompt<string>()
-                .Title($"Select subprojects to remove from project '{projectName}' (use spacebar to select, Enter to confirm)")
+                .Title(
+                    $"Select subprojects to remove from project '{projectName}' (use spacebar to select, Enter to confirm)")
                 .NotRequired()
                 .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[chartreuse3_1]Cancel[/]"))
         );
@@ -291,7 +327,8 @@ public static class MenuManager
         {
             if (project.SubProjects.Count == 0)
             {
-                AnsiConsole.MarkupLine($"[yellow]:warning: No subprojects found for project '{Markup.Escape(projectName)}'.[/]");
+                AnsiConsole.MarkupLine(
+                    $"[yellow]:warning: No subprojects found for project '{Markup.Escape(projectName)}'.[/]");
                 PauseForUserInput();
                 return false;
             }
@@ -368,7 +405,8 @@ public static class MenuManager
     {
         if (project.SubProjects.Count == 0)
         {
-            AnsiConsole.MarkupLine($"[yellow]:warning: No subprojects found for project '{Markup.Escape(projectName)}'.[/]");
+            AnsiConsole.MarkupLine(
+                $"[yellow]:warning: No subprojects found for project '{Markup.Escape(projectName)}'.[/]");
             await Task.CompletedTask;
             return null;
         }
@@ -461,8 +499,9 @@ public static class MenuManager
             AnsiConsole.Clear();
             AnsiConsole.MarkupLine("[yellow]Adding a file to omit [/]");
             AnsiConsole.WriteLine();
-            
-            var fileToAdd = AnsiConsole.Ask<string>("Enter the file name to omit (e.g., 'example.txt') or 'done' to return:");
+
+            var fileToAdd =
+                AnsiConsole.Ask<string>("Enter the file name to omit (e.g., 'example.txt') or 'done' to return:");
             if (fileToAdd.ToLower() == "done")
             {
                 addingFiles = false;
@@ -487,6 +526,7 @@ public static class MenuManager
                 PauseForUserInput();
             }
         }
+
         return Task.CompletedTask;
     }
 
@@ -513,23 +553,225 @@ public static class MenuManager
                     subProject.OmitFiles.Remove(file);
                     AnsiConsole.MarkupLine($"[green]File '{Markup.Escape(file)}' removed from omit list.[/]");
                 }
+
                 ProjectManager.SaveConfig(_projects);
             }
         }
+
         return Task.CompletedTask;
     }
 
     // Ejecución de subproyectos
     private static async Task ExecuteCommandSubProject(Project project, SubProject? subProject, string projectName)
     {
-        if (subProject != null)
+        if (subProject == null) return;
+
+        string subProjectPathFull = Path.Combine(project.Path, subProject.Path);
+        string imageTag = $"{projectName.ToLower()}-{subProject.Name.ToLower()}:latest";
+
+        var choices = new List<string> { "Generate Microsoft publish", "[chartreuse3_1]Back to Subprojects[/]" };
+        if (!string.IsNullOrEmpty(subProject.DockerfilePath))
         {
-            string subProjectPathFull = Path.Combine(project.Path, subProject.Path);
-            AnsiConsole.MarkupLine($"[green] Running publish for subproject '{Markup.Escape(subProject.Name)}' in project '{Markup.Escape(projectName)}'...[/]");
-            await CommandExecutor.RunCommandsAsync(projectName, subProject.Name, subProjectPathFull,subProject);
+            choices.Insert(1, "Docker Build");
+            choices.Insert(2, "Docker Run");
+            choices.Insert(3, "Push to Docker Hub");
         }
-        PauseForUserInput();
-        await StartAsync();
+
+        var action = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title($"What do you want to do with subproject '{subProject.Name}'?")
+                .AddChoices(choices)
+        );
+
+        switch (action)
+        {
+            case "Generate Microsoft publish":
+                AnsiConsole.MarkupLine($"[green]Running normal publish for subproject '{Markup.Escape(subProject.Name)}' in project '{Markup.Escape(projectName)}'...[/]");
+                await CommandExecutor.RunCommandsAsync(projectName, subProject.Name, subProjectPathFull, subProject);
+                PauseForUserInput();
+                break;
+
+            case "Docker Build":
+                if (!string.IsNullOrEmpty(subProject.DockerfilePath))
+                {
+                    string dockerfileFullPath = Path.Combine(subProjectPathFull, subProject.DockerfilePath);
+                    AnsiConsole.MarkupLine(
+                        $"[green]Building Docker image for subproject '{Markup.Escape(subProject.Name)}'...[/]");
+                    string buildArgs = subProject.DockerBuildArgs != null && subProject.DockerBuildArgs.Count > 0
+                        ? " " + string.Join(" ", subProject.DockerBuildArgs)
+                        : "";
+                    string buildCommand =
+                        $"docker build -f \"{dockerfileFullPath}\" -t {imageTag}{buildArgs} \"{subProjectPathFull}\"";
+                    int buildResult =
+                        await CommandExecutor.ExecuteDockerCommandAsync(buildCommand); // Asumiendo que lo agregarás
+                    if (buildResult == 0)
+                        AnsiConsole.MarkupLine($"[green]Docker image '{imageTag}' built successfully![/]");
+                    else
+                        AnsiConsole.MarkupLine("[red]Docker build failed. Check the output above.[/]");
+                    PauseForUserInput();
+                }
+
+                break;
+
+            case "Docker Run":
+                if (!string.IsNullOrEmpty(subProject.DockerfilePath))
+                {
+                    AnsiConsole.MarkupLine(
+                        $"[green]Running Docker container for subproject '{Markup.Escape(subProject.Name)}'...[/]");
+                    string runArgs = subProject.DockerRunArgs != null && subProject.DockerRunArgs.Count > 0
+                        ? " " + string.Join(" ", subProject.DockerRunArgs)
+                        : "";
+                    string runCommand = $"docker run -it --rm{runArgs} {imageTag}";
+                    int runResult = await CommandExecutor.ExecuteDockerCommandAsync(runCommand);
+                    AnsiConsole.MarkupLine(runResult == 0
+                        ? $"[green]Container ran successfully![/]"
+                        : "[red]Docker run failed. Check the output above.[/]");
+                    PauseForUserInput();
+                }
+
+                break;
+
+            case "Push to Docker Hub":
+                if (!string.IsNullOrEmpty(subProject.DockerfilePath))
+                {
+                    string? dockerHubUser = subProject.DockerHubUser;
+                    
+                    if (string.IsNullOrEmpty(dockerHubUser))
+                    {
+                        dockerHubUser = AnsiConsole.Ask<string>("Enter your Docker Hub username (this will be saved):");
+                        subProject.DockerHubUser = dockerHubUser;
+                        ProjectManager.SaveConfig(_projects);
+                    }
+
+                    string dockerHubTag = $"{dockerHubUser}/{imageTag}";
+                    AnsiConsole.MarkupLine($"[yellow]Tagging image '{imageTag}' as '{dockerHubTag}'...[/]");
+                    string tagCommand = $"docker tag {imageTag} {dockerHubTag}";
+                    await CommandExecutor.ExecuteDockerCommandAsync(tagCommand);
+
+                    AnsiConsole.MarkupLine($"[yellow]Pushing to Docker Hub as '{dockerHubTag}'...[/]");
+                    string pushCommand = $"docker push {dockerHubTag}";
+                    int pushResult = await CommandExecutor.ExecuteDockerCommandAsync(pushCommand);
+                    AnsiConsole.MarkupLine(pushResult == 0
+                        ? $"[green]Image pushed to Docker Hub successfully![/]"
+                        : "[red]Push to Docker Hub failed. Check credentials or network.[/]");
+                    PauseForUserInput();
+                }
+
+                break;
+
+            case "[chartreuse3_1]Back to Subprojects[/]":
+                return; // Vuelve al menú de subproyectos
+        }
+    }
+
+    private static async Task ManageDockerProjectsAsync()
+    {
+        while (true)
+        {
+            var dockerProjects = _projects
+                .Where(p => p.Value.SubProjects.Any(sp => !string.IsNullOrEmpty(sp.DockerfilePath)))
+                .ToDictionary(p => p.Key, p => p.Value);
+
+            if (dockerProjects.Count == 0)
+            {
+                AnsiConsole.MarkupLine("[yellow]:warning: No projects with Dockerfiles found.[/]");
+                await Task.Delay(2000);
+                return;
+            }
+
+            var projectName = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("Select a project with Docker subprojects")
+                    .AddChoices(dockerProjects.Keys.Append("[chartreuse3_1]Back to Main Menu[/]"))
+            );
+
+            if (projectName == "[chartreuse3_1]Back to Main Menu[/]") return;
+
+            await ManageDockerSubProjectsAsync(dockerProjects[projectName], projectName);
+        }
+    }
+
+    private static async Task ManageDockerSubProjectsAsync(Project project, string projectName)
+    {
+        while (true)
+        {
+            var dockerSubProjects = project.SubProjects
+                .Where(sp => !string.IsNullOrEmpty(sp.DockerfilePath))
+                .ToList();
+
+            if (dockerSubProjects.Count == 0)
+            {
+                AnsiConsole.MarkupLine($"[yellow]:warning: No subprojects with Dockerfiles in '{Markup.Escape(projectName)}'.[/]");
+                await Task.Delay(2000);
+                return;
+            }
+
+            var subProjectName = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title($"Select a Docker subproject in '{projectName}'")
+                    .AddChoices(dockerSubProjects.Select(sp => sp.Name).Append("[chartreuse3_1]Back to Projects[/]"))
+            );
+
+            if (subProjectName == "[chartreuse3_1]Back to Projects[/]") return;
+
+            var subProject = dockerSubProjects.First(sp => sp.Name == subProjectName);
+
+            var action = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title($"Manage Docker settings for '{subProjectName}'")
+                    .AddChoices("Set Docker Build Args", "Set Docker Run Args", "[chartreuse3_1]Back to Subprojects[/]")
+            );
+
+            switch (action)
+            {
+                case "Set Docker Build Args":
+                    subProject.DockerBuildArgs = PromptDockerArgs("build", subProject.DockerBuildArgs);
+                    ProjectManager.SaveConfig(_projects);
+                    AnsiConsole.MarkupLine(
+                        $"[green]Docker build args updated for '{Markup.Escape(subProjectName)}'.[/]");
+                    break;
+
+                case "Set Docker Run Args":
+                    subProject.DockerRunArgs = PromptDockerArgs("run", subProject.DockerRunArgs);
+                    ProjectManager.SaveConfig(_projects);
+                    AnsiConsole.MarkupLine($"[green]Docker run args updated for '{Markup.Escape(subProjectName)}'.[/]");
+                    break;
+
+                case "[chartreuse3_1]Back to Subprojects[/]":
+                    return;
+            }
+
+            await Task.Delay(1500);
+        }
+    }
+
+    private static List<string> PromptDockerArgs(string type, List<string>? currentArgs)
+    {
+        var args = currentArgs != null ? new List<string>(currentArgs) : new List<string>();
+        AnsiConsole.MarkupLine($"[yellow]Current {type} args: {(args.Count > 0 ? string.Join(" ", args) : "None")}[/]");
+
+        bool adding = true;
+        while (adding)
+        {
+            var arg = AnsiConsole.Ask<string>(
+                $"Enter a {type} arg (e.g., '-p 8080:80' or '--build-arg ENV=prod', or 'done' to finish, 'clear' to reset):");
+            if (arg.ToLower() == "done")
+            {
+                adding = false;
+            }
+            else if (arg.ToLower() == "clear")
+            {
+                args.Clear();
+                AnsiConsole.MarkupLine($"[green]{type} args cleared.[/]");
+            }
+            else if (!string.IsNullOrWhiteSpace(arg))
+            {
+                args.Add(arg);
+                AnsiConsole.MarkupLine($"[green]Added: {Markup.Escape(arg)}[/]");
+            }
+        }
+
+        return args;
     }
 
     // Utilidad

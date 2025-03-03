@@ -4,6 +4,9 @@
     {
         public string Name { get; set; } = "";
         public string Path { get; set; } = "";
-
-        public List<string> OmitFiles { get; set; } = new List<string>();
+        public List<string> OmitFiles { get; set; } = new();
+        public string? DockerfilePath { get; set; }
+        public List<string>? DockerRunArgs { get; set; }
+        public List<string>? DockerBuildArgs { get; set; }
+        public string? DockerHubUser { get; set; }
     }

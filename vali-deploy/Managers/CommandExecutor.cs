@@ -7,7 +7,7 @@ namespace vali_deploy.Managers;
 
 public static class CommandExecutor
 {
-    public static async Task RunCommandsAsync(string projectName,string subProjectName,string projectPath,SubProject subProject)
+    public static async Task RunCommandsAsync(string projectName,string subProjectName,string projectPath,SubProject? subProject)
     {
         if (!Directory.Exists(projectPath))
         {
@@ -57,7 +57,7 @@ public static class CommandExecutor
             .StartAsync("Clearing the publication directory...", async ctx =>
             {
                 // Procesar los archivos y carpetas a omitir desde OmitFiles
-                if (subProject != null && subProject.OmitFiles != null && subProject.OmitFiles.Any())
+                if (subProject != null && subProject.OmitFiles.Any())
                 {
                     AnsiConsole.MarkupLine("[yellow]:information: Cleaning up omitted files and folders...[/]");
                     foreach (var item in subProject.OmitFiles)
@@ -124,6 +124,33 @@ public static class CommandExecutor
             AnsiConsole.MarkupLine($"[springgreen2_1]{Markup.Escape(output)}[/]");
         if (!string.IsNullOrEmpty(error))
             AnsiConsole.MarkupLine($"[red]:warning: Error: {Markup.Escape(error)}[/]");
+    }
+
+    public static async Task<int> ExecuteDockerCommandAsync(string command)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/bash",
+            Arguments = OperatingSystem.IsWindows() ? $"/c set DOCKER_BUILDKIT=1 && {command}" : $"-c \"DOCKER_BUILDKIT=1 {command}\"",            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using var process = new Process();
+        process.StartInfo = startInfo;
+        process.Start();
+
+        string output = await process.StandardOutput.ReadToEndAsync();
+        string error = await process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+
+        if (!string.IsNullOrEmpty(output))
+            AnsiConsole.MarkupLine($"[grey]{Markup.Escape(output)}[/]");
+        if (!string.IsNullOrEmpty(error))
+            AnsiConsole.MarkupLine($"[red]{Markup.Escape(error)}[/]");
+
+        return process.ExitCode;
     }
 
     private static ProcessStartInfo CreateProcessStartInfo(string command, string workingDirectory)

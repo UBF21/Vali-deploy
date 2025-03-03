@@ -22,7 +22,6 @@ public static class UpdaterManager
             //updateInfo.Version
             if (updateInfo != null && Util.IsNewerVersion(updateInfo.Version, currentVersion))
             {
-                AnsiConsole.MarkupLine($"[green]New version available: {Markup.Escape(updateInfo.Version)}[/]");
                 return updateInfo;
             }
 

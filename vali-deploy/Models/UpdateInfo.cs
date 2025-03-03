@@ -4,5 +4,6 @@ public class UpdateInfo
 {
     public string Version { get; set; }
     public Dictionary<string, string?> Downloads { get; set; }
+    public string ReleaseDate { get; set; }
     public string ReleaseNotes { get; set; }
 }
