@@ -38,8 +38,8 @@ public static class MenuManager
                     await ShowProjectsAsync();
                     break;
 
-                case "Manage Project Files to omit":
-                    await ManageProjectFilesToOmitAsync();
+                case "Configure Publish File Omissions":
+                    await ManageProjectFilesToOmitFromPublishAsync();
                     UpdateProjectsAndChart();
                     break;
 
@@ -87,7 +87,7 @@ public static class MenuManager
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("What do you want to do?")
-                .AddChoices("Add Project", "Remove Project", "Show Projects", "Manage Project Files to omit",
+                .AddChoices("Add Project", "Remove Project", "Show Projects", "Configure Publish File Omissions",
                     "Remove Subprojects", "Manage Docker Projects", "[chartreuse3_1]Exit[/]")
         );
     }
@@ -185,7 +185,6 @@ public static class MenuManager
                 Path = subProjectPath,
                 DockerfilePath = dockerfilePath
             });
-
             AnsiConsole.MarkupLine($"[green]Subproject '{Markup.Escape(subProjectName)}' added.[/]");
         }
 
@@ -364,7 +363,7 @@ public static class MenuManager
     }
 
     // Gestión de archivos a omitir
-    private static async Task ManageProjectFilesToOmitAsync()
+    private static async Task ManageProjectFilesToOmitFromPublishAsync()
     {
         while (true)
         {
@@ -374,30 +373,30 @@ public static class MenuManager
                 return;
             }
 
-            var projectName = PromptProjectForOmitFiles();
+            var projectName = PromptProjectForOmitFilesFromPublish();
             if (projectName == "[chartreuse3_1]Back to Main Menu[/]") return;
 
-            await ManageSubProjectFilesAsync(_projects[projectName], projectName);
+            await ManageSubProjectFilesFromPublishAsync(_projects[projectName], projectName);
         }
     }
 
-    private static string PromptProjectForOmitFiles()
+    private static string PromptProjectForOmitFilesFromPublish()
     {
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
-                .Title("Select a project to manage files to omit")
+                .Title("Select a project to configure publish file omissions")
                 .AddChoices(_projects.Keys.Append("[chartreuse3_1]Back to Main Menu[/]"))
         );
     }
 
-    private static async Task ManageSubProjectFilesAsync(Project project, string projectName)
+    private static async Task ManageSubProjectFilesFromPublishAsync(Project project, string projectName)
     {
         while (true)
         {
             var subProject = await SelectSubProjectAsync(project, projectName);
             if (subProject == null) return;
 
-            await ManageFilesForSubProjectAsync(subProject, projectName);
+            await ConfigurePublishFileOmissionsForSubProjectAsync(subProject, projectName);
         }
     }
 
@@ -428,35 +427,35 @@ public static class MenuManager
         return foundSubProject;
     }
 
-    private static async Task ManageFilesForSubProjectAsync(SubProject subProject, string projectName)
+    private static async Task ConfigurePublishFileOmissionsForSubProjectAsync(SubProject subProject, string projectName)
     {
         bool managingFiles = true;
         while (managingFiles)
         {
             AnsiConsole.Clear();
-            DisplayOmitFiles(subProject, projectName);
+            DisplayOmitFilesFromPublish(subProject, projectName);
             var action = PromptFileManagementAction();
 
             switch (action)
             {
                 case "Add file to omit":
-                    await AddFileToOmitAsync(subProject);
+                    await AddFileToOmitFromPublishAsync(subProject);
                     break;
 
                 case "Remove file from omit list":
-                    await RemoveFileFromOmitAsync(subProject);
+                    await RemoveFileToOmitFromPublishAsync(subProject);
                     break;
 
                 case "[chartreuse3_1]Back to Subprojects[/]":
                     managingFiles = false;
-                    AnsiConsole.Clear(); // Limpiar el árbol
+                    AnsiConsole.Clear();
                     DisplayMainMenu();
-                    break; // Solo limpiar y salir, dejando la pantalla en blanco (o con el encabezado si se reinicia el flujo)
+                    break;
             }
         }
     }
 
-    private static void DisplayOmitFiles(SubProject subProject, string projectName)
+    private static void DisplayOmitFilesFromPublish(SubProject subProject, string projectName)
     {
         var tree = new Tree($"[yellow]{Markup.Escape(projectName)}[/]");
         var subProjectNode = tree.AddNode($"[green]{Markup.Escape(subProject.Name)}[/]");
@@ -491,17 +490,22 @@ public static class MenuManager
         );
     }
 
-    private static Task AddFileToOmitAsync(SubProject subProject)
+    private static async Task AddFileToOmitFromPublishAsync(SubProject subProject)
     {
         bool addingFiles = true;
+        bool firstFileAdded = false; // Bandera para saber si ya se agregó el primer archivo
+
+        AnsiConsole.Clear();
+        AnsiConsole.MarkupLine("[yellow]Adding files to omit (type 'done' to finish)[/]");
         while (addingFiles)
         {
-            AnsiConsole.Clear();
-            AnsiConsole.MarkupLine("[yellow]Adding a file to omit [/]");
-            AnsiConsole.WriteLine();
+            if (firstFileAdded)
+            {
+                AnsiConsole.Clear(); // Limpia la pantalla después del primer archivo
+                AnsiConsole.MarkupLine("[yellow]Adding files to omit (type 'done' to finish)[/]");
+            }
 
-            var fileToAdd =
-                AnsiConsole.Ask<string>("Enter the file name to omit (e.g., 'example.txt') or 'done' to return:");
+            var fileToAdd = AnsiConsole.Ask<string>("Enter the file name to omit (e.g., 'example.txt'): ");
             if (fileToAdd.ToLower() == "done")
             {
                 addingFiles = false;
@@ -511,26 +515,24 @@ public static class MenuManager
             if (string.IsNullOrWhiteSpace(fileToAdd))
             {
                 AnsiConsole.MarkupLine("[red]File name cannot be empty.[/]");
-                PauseForUserInput();
             }
             else if (subProject.OmitFiles.Contains(fileToAdd))
             {
                 AnsiConsole.MarkupLine("[red]This file is already in the omit list.[/]");
-                PauseForUserInput();
             }
             else
             {
                 subProject.OmitFiles.Add(fileToAdd);
                 ProjectManager.SaveConfig(_projects);
                 AnsiConsole.MarkupLine($"[green]File '{Markup.Escape(fileToAdd)}' added to omit list.[/]");
-                PauseForUserInput();
+                firstFileAdded = true; // Marca que ya se agregó el primer archivo
+                await Task.Delay(1000); // Pausa de 1.5 segundos para mostrar el mensaje
             }
         }
 
-        return Task.CompletedTask;
+        await Task.CompletedTask;
     }
-
-    private static Task RemoveFileFromOmitAsync(SubProject subProject)
+    private static Task RemoveFileToOmitFromPublishAsync(SubProject subProject)
     {
         AnsiConsole.Clear();
         if (subProject.OmitFiles.Count == 0)
@@ -586,7 +588,8 @@ public static class MenuManager
         switch (action)
         {
             case "Generate Microsoft publish":
-                AnsiConsole.MarkupLine($"[green]Running normal publish for subproject '{Markup.Escape(subProject.Name)}' in project '{Markup.Escape(projectName)}'...[/]");
+                AnsiConsole.MarkupLine(
+                    $"[green]Running normal publish for subproject '{Markup.Escape(subProject.Name)}' in project '{Markup.Escape(projectName)}'...[/]");
                 await CommandExecutor.RunCommandsAsync(projectName, subProject.Name, subProjectPathFull, subProject);
                 PauseForUserInput();
                 break;
@@ -597,13 +600,12 @@ public static class MenuManager
                     string dockerfileFullPath = Path.Combine(subProjectPathFull, subProject.DockerfilePath);
                     AnsiConsole.MarkupLine(
                         $"[green]Building Docker image for subproject '{Markup.Escape(subProject.Name)}'...[/]");
-                    string buildArgs = subProject.DockerBuildArgs != null && subProject.DockerBuildArgs.Count > 0
+                    string buildArgs = subProject.DockerBuildArgs is { Count: > 0 }
                         ? " " + string.Join(" ", subProject.DockerBuildArgs)
                         : "";
                     string buildCommand =
                         $"docker build -f \"{dockerfileFullPath}\" -t {imageTag}{buildArgs} \"{subProjectPathFull}\"";
-                    int buildResult =
-                        await CommandExecutor.ExecuteDockerCommandAsync(buildCommand); // Asumiendo que lo agregarás
+                    int buildResult = await CommandExecutor.ExecuteDockerCommandAsync(buildCommand);
                     if (buildResult == 0)
                         AnsiConsole.MarkupLine($"[green]Docker image '{imageTag}' built successfully![/]");
                     else
@@ -618,14 +620,15 @@ public static class MenuManager
                 {
                     AnsiConsole.MarkupLine(
                         $"[green]Running Docker container for subproject '{Markup.Escape(subProject.Name)}'...[/]");
-                    string runArgs = subProject.DockerRunArgs != null && subProject.DockerRunArgs.Count > 0
+                    string runArgs = subProject.DockerRunArgs is { Count: > 0 }
                         ? " " + string.Join(" ", subProject.DockerRunArgs)
                         : "";
                     string runCommand = $"docker run -it --rm{runArgs} {imageTag}";
                     int runResult = await CommandExecutor.ExecuteDockerCommandAsync(runCommand);
-                    AnsiConsole.MarkupLine(runResult == 0
-                        ? $"[green]Container ran successfully![/]"
-                        : "[red]Docker run failed. Check the output above.[/]");
+                    if (runResult == 0)
+                        AnsiConsole.MarkupLine($"[green]Container ran successfully![/]");
+                    else
+                        AnsiConsole.MarkupLine("[red]Docker run failed. Check the output above.[/]");
                     PauseForUserInput();
                 }
 
@@ -635,7 +638,6 @@ public static class MenuManager
                 if (!string.IsNullOrEmpty(subProject.DockerfilePath))
                 {
                     string? dockerHubUser = subProject.DockerHubUser;
-                    
                     if (string.IsNullOrEmpty(dockerHubUser))
                     {
                         dockerHubUser = AnsiConsole.Ask<string>("Enter your Docker Hub username (this will be saved):");
@@ -651,16 +653,17 @@ public static class MenuManager
                     AnsiConsole.MarkupLine($"[yellow]Pushing to Docker Hub as '{dockerHubTag}'...[/]");
                     string pushCommand = $"docker push {dockerHubTag}";
                     int pushResult = await CommandExecutor.ExecuteDockerCommandAsync(pushCommand);
-                    AnsiConsole.MarkupLine(pushResult == 0
-                        ? $"[green]Image pushed to Docker Hub successfully![/]"
-                        : "[red]Push to Docker Hub failed. Check credentials or network.[/]");
+                    if (pushResult == 0)
+                        AnsiConsole.MarkupLine($"[green]Image pushed to Docker Hub successfully![/]");
+                    else
+                        AnsiConsole.MarkupLine("[red]Push to Docker Hub failed. Check credentials or network.[/]");
                     PauseForUserInput();
                 }
 
                 break;
 
             case "[chartreuse3_1]Back to Subprojects[/]":
-                return; // Vuelve al menú de subproyectos
+                return;
         }
     }
 
@@ -701,7 +704,8 @@ public static class MenuManager
 
             if (dockerSubProjects.Count == 0)
             {
-                AnsiConsole.MarkupLine($"[yellow]:warning: No subprojects with Dockerfiles in '{Markup.Escape(projectName)}'.[/]");
+                AnsiConsole.MarkupLine(
+                    $"[yellow]:warning: No subprojects with Dockerfiles in '{Markup.Escape(projectName)}'.[/]");
                 await Task.Delay(2000);
                 return;
             }
@@ -715,63 +719,242 @@ public static class MenuManager
             if (subProjectName == "[chartreuse3_1]Back to Projects[/]") return;
 
             var subProject = dockerSubProjects.First(sp => sp.Name == subProjectName);
-
-            var action = AnsiConsole.Prompt(
-                new SelectionPrompt<string>()
-                    .Title($"Manage Docker settings for '{subProjectName}'")
-                    .AddChoices("Set Docker Build Args", "Set Docker Run Args", "[chartreuse3_1]Back to Subprojects[/]")
-            );
-
-            switch (action)
-            {
-                case "Set Docker Build Args":
-                    subProject.DockerBuildArgs = PromptDockerArgs("build", subProject.DockerBuildArgs);
-                    ProjectManager.SaveConfig(_projects);
-                    AnsiConsole.MarkupLine(
-                        $"[green]Docker build args updated for '{Markup.Escape(subProjectName)}'.[/]");
-                    break;
-
-                case "Set Docker Run Args":
-                    subProject.DockerRunArgs = PromptDockerArgs("run", subProject.DockerRunArgs);
-                    ProjectManager.SaveConfig(_projects);
-                    AnsiConsole.MarkupLine($"[green]Docker run args updated for '{Markup.Escape(subProjectName)}'.[/]");
-                    break;
-
-                case "[chartreuse3_1]Back to Subprojects[/]":
-                    return;
-            }
-
-            await Task.Delay(1500);
+            await ManageDockerArgsAsync(subProject, projectName);
         }
     }
 
-    private static List<string> PromptDockerArgs(string type, List<string>? currentArgs)
+    // Nuevo método para gestionar argumentos Docker al estilo de OmitFiles
+    private static async Task ManageDockerArgsAsync(SubProject subProject, string projectName)
     {
-        var args = currentArgs != null ? new List<string>(currentArgs) : new List<string>();
-        AnsiConsole.MarkupLine($"[yellow]Current {type} args: {(args.Count > 0 ? string.Join(" ", args) : "None")}[/]");
-
-        bool adding = true;
-        while (adding)
+        bool managingArgs = true;
+        while (managingArgs)
         {
-            var arg = AnsiConsole.Ask<string>(
-                $"Enter a {type} arg (e.g., '-p 8080:80' or '--build-arg ENV=prod', or 'done' to finish, 'clear' to reset):");
-            if (arg.ToLower() == "done")
+            AnsiConsole.Clear();
+            DisplayDockerArgs(subProject, projectName);
+            var action = PromptDockerArgsAction();
+
+            switch (action)
             {
-                adding = false;
+                case "Add Docker Arg":
+                    await AddDockerArgAsync(subProject);
+                    break;
+
+                case "Remove Docker Args":
+                    await RemoveDockerArgsAsync(subProject);
+                    break;
+
+                case "[chartreuse3_1]Back to Subprojects[/]":
+                    managingArgs = false;
+                    AnsiConsole.Clear();
+                    DisplayMainMenu();
+                    break;
             }
-            else if (arg.ToLower() == "clear")
+        }
+    }
+
+    // Método para mostrar los argumentos Docker en un árbol
+    private static void DisplayDockerArgs(SubProject subProject, string projectName)
+    {
+        var tree = new Tree($"[yellow]{Markup.Escape(projectName)}[/]");
+        var subProjectNode = tree.AddNode($"[green]{Markup.Escape(subProject.Name)}[/]");
+        var buildArgsNode = subProjectNode.AddNode("[blue]Build Args[/]");
+        var runArgsNode = subProjectNode.AddNode("[blue]Run Args[/]");
+
+        var padder = new Padder(tree).PadLeft(2);
+        var panel = new Panel(padder).Header("Docker Arguments");
+
+        if (subProject.DockerBuildArgs == null || subProject.DockerBuildArgs.Count == 0)
+        {
+            buildArgsNode.AddNode("[grey]No build args specified[/]");
+        }
+        else
+        {
+            foreach (var arg in subProject.DockerBuildArgs)
             {
-                args.Clear();
-                AnsiConsole.MarkupLine($"[green]{type} args cleared.[/]");
-            }
-            else if (!string.IsNullOrWhiteSpace(arg))
-            {
-                args.Add(arg);
-                AnsiConsole.MarkupLine($"[green]Added: {Markup.Escape(arg)}[/]");
+                buildArgsNode.AddNode($"[white]{Markup.Escape(arg)}[/]");
             }
         }
 
-        return args;
+        if (subProject.DockerRunArgs == null || subProject.DockerRunArgs.Count == 0)
+        {
+            runArgsNode.AddNode("[grey]No run args specified[/]");
+        }
+        else
+        {
+            foreach (var arg in subProject.DockerRunArgs)
+            {
+                runArgsNode.AddNode($"[white]{Markup.Escape(arg)}[/]");
+            }
+        }
+
+        DisplayMainMenu();
+        AnsiConsole.Write(panel);
+        AnsiConsole.WriteLine();
+    }
+
+    // Método para mostrar las opciones de gestión de argumentos
+    private static string PromptDockerArgsAction()
+    {
+        return AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("What do you want to do?")
+                .AddChoices("Add Docker Arg", "Remove Docker Args", "[chartreuse3_1]Back to Subprojects[/]")
+        );
+    }
+
+    // Método para añadir un argumento Docker
+private static async Task AddDockerArgAsync(SubProject subProject)
+{
+    bool addingArgs = true;
+    while (addingArgs)
+    {
+        AnsiConsole.Clear();
+        AnsiConsole.MarkupLine("[yellow]Adding a Docker argument[/]");
+        AnsiConsole.WriteLine();
+
+        var type = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("Select argument type:")
+                .AddChoices("Build Arg", "Run Arg", "[chartreuse3_1]Back[/]")
+        );
+
+        if (type == "[chartreuse3_1]Back[/]")
+        {
+            addingArgs = false;
+            continue;
+        }
+
+        AnsiConsole.MarkupLine($"[yellow]Adding {type.ToLower()}s (type 'done' to finish)[/]");
+        bool addingTypeArgs = true;
+        bool firstArgAdded = false; // Bandera para saber si ya se agregó el primer argumento
+        while (addingTypeArgs)
+        {
+            if (firstArgAdded)
+            {
+                AnsiConsole.Clear(); // Limpia la pantalla después del primer argumento
+                AnsiConsole.MarkupLine($"[yellow]Adding {type.ToLower()}s (type 'done' to finish)[/]");
+            }
+
+            var arg = AnsiConsole.Ask<string>($"Enter {type.ToLower()} (e.g., '-p 8080:80' or '--build-arg ENV=prod'): ");
+            if (arg.ToLower() == "done")
+            {
+                addingTypeArgs = false;
+                continue; // Vuelve a la selección de tipo
+            }
+
+            if (string.IsNullOrWhiteSpace(arg))
+            {
+                AnsiConsole.MarkupLine("[red]Argument cannot be empty.[/]");
+            }
+            else
+            {
+                if (type == "Build Arg")
+                {
+                    subProject.DockerBuildArgs ??= new List<string>();
+                    if (subProject.DockerBuildArgs.Contains(arg))
+                    {
+                        AnsiConsole.MarkupLine("[red]This build arg is already in the list.[/]");
+                    }
+                    else
+                    {
+                        subProject.DockerBuildArgs.Add(arg);
+                        AnsiConsole.MarkupLine($"[green]Build arg '{Markup.Escape(arg)}' added.[/]");
+                        ProjectManager.SaveConfig(_projects);
+                        firstArgAdded = true; // Marca que ya se agregó el primer argumento
+                        await Task.Delay(1000); // Pausa de 1.5 segundos para mostrar el mensaje
+                    }
+                }
+                else if (type == "Run Arg")
+                {
+                    subProject.DockerRunArgs ??= new List<string>();
+                    if (subProject.DockerRunArgs.Contains(arg))
+                    {
+                        AnsiConsole.MarkupLine("[red]This run arg is already in the list.[/]");
+                    }
+                    else
+                    {
+                        subProject.DockerRunArgs.Add(arg);
+                        AnsiConsole.MarkupLine($"[green]Run arg '{Markup.Escape(arg)}' added.[/]");
+                        ProjectManager.SaveConfig(_projects);
+                        firstArgAdded = true; // Marca que ya se agregó el primer argumento
+                        await Task.Delay(1500); // Pausa de 1.5 segundos para mostrar el mensaje
+                    }
+                }
+            }
+        }
+    }
+
+    await Task.CompletedTask;
+}
+
+// Método para eliminar argumentos Docker con selección múltiple
+    private static Task RemoveDockerArgsAsync(SubProject subProject)
+    {
+        AnsiConsole.Clear();
+        var type = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("Select argument type to remove:")
+                .AddChoices("Build Args", "Run Args", "[chartreuse3_1]Cancel[/]")
+        );
+
+        if (type == "[chartreuse3_1]Cancel[/]") return Task.CompletedTask;
+
+        if (type == "Build Args")
+        {
+            if (subProject.DockerBuildArgs == null || subProject.DockerBuildArgs.Count == 0)
+            {
+                AnsiConsole.MarkupLine("[yellow]No build args to remove.[/]");
+                PauseForUserInput();
+                return Task.CompletedTask;
+            }
+
+            var argsToRemove = AnsiConsole.Prompt(
+                new MultiSelectionPrompt<string>()
+                    .Title("Select build args to remove (use spacebar to select, Enter to confirm)")
+                    .NotRequired()
+                    .AddChoices(subProject.DockerBuildArgs.Append("[chartreuse3_1]Cancel[/]"))
+            );
+
+            if (!argsToRemove.Contains("[chartreuse3_1]Cancel[/]") && argsToRemove.Count > 0)
+            {
+                foreach (var arg in argsToRemove)
+                {
+                    subProject.DockerBuildArgs.Remove(arg);
+                    AnsiConsole.MarkupLine($"[green]Build arg '{Markup.Escape(arg)}' removed.[/]");
+                }
+
+                ProjectManager.SaveConfig(_projects);
+            }
+        }
+        else if (type == "Run Args")
+        {
+            if (subProject.DockerRunArgs == null || subProject.DockerRunArgs.Count == 0)
+            {
+                AnsiConsole.MarkupLine("[yellow]No run args to remove.[/]");
+                PauseForUserInput();
+                return Task.CompletedTask;
+            }
+
+            var argsToRemove = AnsiConsole.Prompt(
+                new MultiSelectionPrompt<string>()
+                    .Title("Select run args to remove (use spacebar to select, Enter to confirm)")
+                    .NotRequired()
+                    .AddChoices(subProject.DockerRunArgs.Append("[chartreuse3_1]Cancel[/]"))
+            );
+
+            if (!argsToRemove.Contains("[chartreuse3_1]Cancel[/]") && argsToRemove.Count > 0)
+            {
+                foreach (var arg in argsToRemove)
+                {
+                    subProject.DockerRunArgs.Remove(arg);
+                    AnsiConsole.MarkupLine($"[green]Run arg '{Markup.Escape(arg)}' removed.[/]");
+                }
+
+                ProjectManager.SaveConfig(_projects);
+            }
+        }
+
+        return Task.CompletedTask;
     }
 
     // Utilidad

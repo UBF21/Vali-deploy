@@ -131,10 +131,10 @@ public static class CommandExecutor
         var startInfo = new ProcessStartInfo
         {
             FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/bash",
-            Arguments = OperatingSystem.IsWindows() ? $"/c set DOCKER_BUILDKIT=1 && {command}" : $"-c \"DOCKER_BUILDKIT=1 {command}\"",            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
+            Arguments = OperatingSystem.IsWindows() ? $"/c set DOCKER_BUILDKIT=1 && {command}" : $"-c \"DOCKER_BUILDKIT=1 {command}\"",            RedirectStandardOutput = true,  // Necesario para leer la salida estándar
+            RedirectStandardError = true,   // Para leer errores
+            UseShellExecute = false,        // Requerido para redirigir salida
+            CreateNoWindow = true           // Evita mostrar ventana en GUI
         };
 
         using var process = new Process();
