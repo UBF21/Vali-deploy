@@ -9,4 +9,6 @@
         public List<string>? DockerRunArgs { get; set; }
         public List<string>? DockerBuildArgs { get; set; }
         public string? DockerHubUser { get; set; }
+        public List<string>? PublishArgs { get; set; }
+        public bool ZipPublishOutput { get; set; } = true;
     }

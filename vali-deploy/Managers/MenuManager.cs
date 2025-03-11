@@ -51,6 +51,10 @@ public static class MenuManager
                     await ManageDockerProjectsAsync();
                     UpdateProjectsAndChart();
                     break;
+                case "Manage Publish Arguments": // Nueva opción
+                    await ManagePublishArgumentsAsync();
+                    UpdateProjectsAndChart();
+                    break;
                 case "[chartreuse3_1]Exit[/]":
                     running = false;
                     AnsiConsole.MarkupLine("[yellow] Leaving...[/]");
@@ -88,7 +92,7 @@ public static class MenuManager
             new SelectionPrompt<string>()
                 .Title("What do you want to do?")
                 .AddChoices("Add Project", "Remove Project", "Show Projects", "Configure Publish File Omissions",
-                    "Remove Subprojects", "Manage Docker Projects", "[chartreuse3_1]Exit[/]")
+                    "Remove Subprojects", "Manage Docker Projects","Manage Publish Arguments", "[chartreuse3_1]Exit[/]")
         );
     }
 
@@ -957,6 +961,197 @@ private static async Task AddDockerArgAsync(SubProject subProject)
         return Task.CompletedTask;
     }
 
+    private static async Task ManagePublishArgumentsAsync()
+    {
+        while (true)
+        {
+            if (_projects.Count == 0)
+            {
+                AnsiConsole.MarkupLine("[yellow]:warning: No projects found.[/]");
+                await Task.Delay(2000);
+                return;
+            }
+
+            var projectName = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("Select a project to manage publish arguments")
+                    .AddChoices(_projects.Keys.Append("[chartreuse3_1]Back to Main Menu[/]"))
+            );
+
+            if (projectName == "[chartreuse3_1]Back to Main Menu[/]") return;
+
+            await ManagePublishSubProjectsAsync(_projects[projectName], projectName);
+        }
+    }
+    
+    private static async Task ManagePublishSubProjectsAsync(Project project, string projectName)
+    {
+        while (true)
+        {
+            if (project.SubProjects.Count == 0)
+            {
+                AnsiConsole.MarkupLine(
+                    $"[yellow]:warning: No subprojects found in '{Markup.Escape(projectName)}'.[/]");
+                await Task.Delay(2000);
+                return;
+            }
+
+            var subProjectName = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title($"Select a subproject in '{projectName}' to manage publish arguments")
+                    .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[chartreuse3_1]Back to Projects[/]"))
+            );
+
+            if (subProjectName == "[chartreuse3_1]Back to Projects[/]") return;
+
+            var subProject = project.SubProjects.First(sp => sp.Name == subProjectName);
+            await ManagePublishArgsAsync(subProject, projectName);
+        }
+    }
+    
+    private static async Task ManagePublishArgsAsync(SubProject subProject, string projectName)
+    {
+        bool managingArgs = true;
+        while (managingArgs)
+        {
+            AnsiConsole.Clear();
+            DisplayPublishArgs(subProject, projectName);
+            var action = PromptPublishArgsAction();
+
+            switch (action)
+            {
+                case "Add Publish Arg":
+                    await AddPublishArgAsync(subProject);
+                    break;
+
+                case "Remove Publish Args":
+                    await RemovePublishArgsAsync(subProject);
+                    break;
+
+                case "Toggle Zip Publish Output":
+                    subProject.ZipPublishOutput = !subProject.ZipPublishOutput;
+                    ProjectManager.SaveConfig(_projects);
+                    AnsiConsole.MarkupLine($"[green]Zip Publish Output {(subProject.ZipPublishOutput ? "enabled" : "disabled")}.[/]");
+                    await Task.Delay(1500); // Pausa breve para mostrar el mensaje
+                    break;
+
+                case "[chartreuse3_1]Back to Subprojects[/]":
+                    managingArgs = false;
+                    AnsiConsole.Clear();
+                    DisplayMainMenu();
+                    break;
+            }
+        }
+    }
+    
+    private static void DisplayPublishArgs(SubProject subProject, string projectName)
+    {
+        var tree = new Tree($"[yellow]{Markup.Escape(projectName)}[/]");
+        var subProjectNode = tree.AddNode($"[green]{Markup.Escape(subProject.Name)}[/]");
+        var publishArgsNode = subProjectNode.AddNode("[blue]Publish Args[/]");
+        var zipNode = subProjectNode.AddNode($"[blue]Zip Publish Output: {(subProject.ZipPublishOutput ? "[green]Enabled[/]" : "[red]Disabled[/]")}[/]");
+
+        var padder = new Padder(tree).PadLeft(2);
+        var panel = new Panel(padder).Header("Publish Arguments");
+
+        if (subProject.PublishArgs == null || subProject.PublishArgs.Count == 0)
+        {
+            publishArgsNode.AddNode("[grey]No publish args specified[/]");
+        }
+        else
+        {
+            foreach (var arg in subProject.PublishArgs)
+            {
+                publishArgsNode.AddNode($"[white]{Markup.Escape(arg)}[/]");
+            }
+        }
+
+        DisplayMainMenu();
+        AnsiConsole.Write(panel);
+        AnsiConsole.WriteLine();
+    }
+    
+    private static string PromptPublishArgsAction()
+    {
+        return AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("What do you want to do?")
+                .AddChoices("Add Publish Arg", "Remove Publish Args", "Toggle Zip Publish Output", "[chartreuse3_1]Back to Subprojects[/]")
+        );
+    }
+    
+    private static async Task AddPublishArgAsync(SubProject subProject)
+    {
+        bool addingArgs = true;
+        bool firstArgAdded = false;
+
+        AnsiConsole.Clear();
+        AnsiConsole.MarkupLine("[yellow]Adding publish args (type 'done' to finish)[/]");
+        while (addingArgs)
+        {
+            if (firstArgAdded)
+            {
+                AnsiConsole.Clear();
+                AnsiConsole.MarkupLine("[yellow]Adding publish args (type 'done' to finish)[/]");
+            }
+
+            var arg = AnsiConsole.Ask<string>("Enter publish arg (e.g., '--no-restore' or '-p:EnvironmentName=Production'): ");
+            if (arg.ToLower() == "done")
+            {
+                addingArgs = false;
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(arg))
+            {
+                AnsiConsole.MarkupLine("[red]Argument cannot be empty.[/]");
+            }
+            else if (subProject.PublishArgs != null && subProject.PublishArgs.Contains(arg))
+            {
+                AnsiConsole.MarkupLine("[red]This publish arg is already in the list.[/]");
+            }
+            else
+            {
+                subProject.PublishArgs ??= new List<string>();
+                subProject.PublishArgs.Add(arg);
+                ProjectManager.SaveConfig(_projects);
+                AnsiConsole.MarkupLine($"[green]Publish arg '{Markup.Escape(arg)}' added.[/]");
+                firstArgAdded = true;
+                await Task.Delay(1500); // Pausa de 1.5 segundos
+            }
+        }
+    }
+    
+    private static async Task RemovePublishArgsAsync(SubProject subProject)
+    {
+        AnsiConsole.Clear();
+        if (subProject.PublishArgs == null || subProject.PublishArgs.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]No publish args to remove.[/]");
+            await Task.Delay(1500);
+            return;
+        }
+
+        var argsToRemove = AnsiConsole.Prompt(
+            new MultiSelectionPrompt<string>()
+                .Title("Select publish args to remove (use space-bar to select, Enter to confirm)")
+                .NotRequired()
+                .AddChoices(subProject.PublishArgs.Append("[chartreuse3_1]Cancel[/]"))
+        );
+
+        if (!argsToRemove.Contains("[chartreuse3_1]Cancel[/]") && argsToRemove.Count > 0)
+        {
+            foreach (var arg in argsToRemove)
+            {
+                subProject.PublishArgs.Remove(arg);
+                AnsiConsole.MarkupLine($"[green]Publish arg '{Markup.Escape(arg)}' removed.[/]");
+            }
+            ProjectManager.SaveConfig(_projects);
+        }
+
+        await Task.Delay(1500);
+    }
+    
     // Utilidad
     private static void PauseForUserInput(string context = "")
     {

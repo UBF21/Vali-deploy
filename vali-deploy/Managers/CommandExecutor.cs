@@ -7,11 +7,13 @@ namespace vali_deploy.Managers;
 
 public static class CommandExecutor
 {
-    public static async Task RunCommandsAsync(string projectName,string subProjectName,string projectPath,SubProject? subProject)
+    public static async Task RunCommandsAsync(string projectName, string subProjectName, string projectPath,
+        SubProject? subProject)
     {
         if (!Directory.Exists(projectPath))
         {
-            AnsiConsole.MarkupLine($"[red]:cross_mark: The project route does not exist: {Markup.Escape(projectPath)}[/]");
+            AnsiConsole.MarkupLine(
+                $"[red]:cross_mark: The project route does not exist: {Markup.Escape(projectPath)}[/]");
             return;
         }
 
@@ -39,7 +41,8 @@ public static class CommandExecutor
 
         // Busca el directorio "publish" dentro de "bin/Release" de forma recursiva
         string releaseFolder = Path.Combine(projectPath, "bin", "Release");
-        string? publishFolder = Directory.EnumerateDirectories(releaseFolder, "publish", SearchOption.AllDirectories).FirstOrDefault();
+        string? publishFolder = Directory.EnumerateDirectories(releaseFolder, "publish", SearchOption.AllDirectories)
+            .FirstOrDefault();
         if (string.IsNullOrEmpty(publishFolder) || !Directory.Exists(publishFolder))
         {
             AnsiConsole.MarkupLine("[red] :cross_mark: Publication folder not found.[/]");
@@ -51,7 +54,7 @@ public static class CommandExecutor
         Directory.SetCurrentDirectory(publishFolder);
 
         bool isWebApiProject = IsWebApiProject(projectPath);
-        
+
         await AnsiConsole.Status()
             .Spinner(Spinner.Known.Star)
             .StartAsync("Clearing the publication directory...", async ctx =>
@@ -76,7 +79,8 @@ public static class CommandExecutor
                         }
                         else
                         {
-                            AnsiConsole.MarkupLine($"[yellow]:warning: Item not found in publish folder: {Markup.Escape(fullPath)}[/]");
+                            AnsiConsole.MarkupLine(
+                                $"[yellow]:warning: Item not found in publish folder: {Markup.Escape(fullPath)}[/]");
                         }
                     }
                 }
@@ -84,27 +88,39 @@ public static class CommandExecutor
                 {
                     AnsiConsole.MarkupLine("[yellow]:information: No files or folders to omit. Skipping cleanup.[/]");
                 }
+
                 await Task.CompletedTask;
             });
-        
-        // Crear el archivo ZIP con el nombre deseado
-        string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
-        string zipFileName = $"publish_{projectName}_{subProjectName}_{timestamp}.zip";
-        // Guardamos el ZIP en el directorio padre de la carpeta publish
-        string parentFolder = Directory.GetParent(publishFolder)?.FullName ?? publishFolder;
-        string zipFilePath = Path.Combine(parentFolder, zipFileName);
-        
-        try
-        {
-            ZipFile.CreateFromDirectory(publishFolder, zipFilePath);
-            AnsiConsole.MarkupLine($"[green]:check_mark: Packaging complete: {Markup.Escape(zipFilePath)}[/]");
-            OpenFileExplorer(parentFolder);
-        }
-        catch (Exception ex)
-        {
-            AnsiConsole.MarkupLine($"[red]Packaging error: {Markup.Escape(ex.Message)}[/]");
-        }
 
+        if (subProject is { ZipPublishOutput: true })
+        {
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dqpb)
+                .SpinnerStyle(Style.Parse("green"))
+                .StartAsync("Packaging in progress...", async ctx =>
+                {
+                    // Crear el archivo ZIP con el nombre deseado
+                    string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
+                    string zipFileName = $"publish_{projectName}_{subProjectName}_{timestamp}.zip";
+                    // Guardamos el ZIP en el directorio padre de la carpeta publish
+                    string parentFolder = Directory.GetParent(publishFolder)?.FullName ?? publishFolder;
+                    string zipFilePath = Path.Combine(parentFolder, zipFileName);
+
+                    try
+                    {
+                        ZipFile.CreateFromDirectory(publishFolder, zipFilePath);
+                        AnsiConsole.MarkupLine(
+                            $"[green]:check_mark: Packaging complete: {Markup.Escape(zipFilePath)}[/]");
+                        OpenFileExplorer(parentFolder);
+                    }
+                    catch (Exception ex)
+                    {
+                        AnsiConsole.MarkupLine($"[red]Packaging error: {Markup.Escape(ex.Message)}[/]");
+                    }
+
+                    await Task.CompletedTask;
+                });
+        }
     }
 
     private static async Task ExecuteCommandAsync(string command, string workingDirectory)
@@ -131,10 +147,13 @@ public static class CommandExecutor
         var startInfo = new ProcessStartInfo
         {
             FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/bash",
-            Arguments = OperatingSystem.IsWindows() ? $"/c set DOCKER_BUILDKIT=1 && {command}" : $"-c \"DOCKER_BUILDKIT=1 {command}\"",            RedirectStandardOutput = true,  // Necesario para leer la salida estándar
-            RedirectStandardError = true,   // Para leer errores
-            UseShellExecute = false,        // Requerido para redirigir salida
-            CreateNoWindow = true           // Evita mostrar ventana en GUI
+            Arguments = OperatingSystem.IsWindows()
+                ? $"/c set DOCKER_BUILDKIT=1 && {command}"
+                : $"-c \"DOCKER_BUILDKIT=1 {command}\"",
+            RedirectStandardOutput = true, // Necesario para leer la salida estándar
+            RedirectStandardError = true, // Para leer errores
+            UseShellExecute = false, // Requerido para redirigir salida
+            CreateNoWindow = true // Evita mostrar ventana en GUI
         };
 
         using var process = new Process();
@@ -159,8 +178,8 @@ public static class CommandExecutor
         {
             throw new PlatformNotSupportedException("Operating system is not supported.");
         }
-        
-        ProcessStartInfo processStartInfo =  new ProcessStartInfo()
+
+        ProcessStartInfo processStartInfo = new ProcessStartInfo()
         {
             FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/bash",
             Arguments = OperatingSystem.IsWindows() ? $"/c {command}" : $"-c \"{command}\"",
@@ -170,12 +189,10 @@ public static class CommandExecutor
             UseShellExecute = false,
             CreateNoWindow = true
         };
-        
+
         return processStartInfo;
-        
-        
     }
-    
+
     private static bool IsWebApiProject(string projectPath)
     {
         // Verificar si el proyecto es una Web API buscando el archivo Program.cs o Startup.cs
@@ -196,7 +213,7 @@ public static class CommandExecutor
         // Si existe Program.cs o Startup.cs, es probable que sea una Web API
         return File.Exists(programCsPath) || File.Exists(startupCsPath);
     }
-    
+
     private static void OpenFileExplorer(string folderPath)
     {
         try
