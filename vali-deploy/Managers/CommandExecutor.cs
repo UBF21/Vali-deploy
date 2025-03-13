@@ -20,13 +20,17 @@ public static class CommandExecutor
         AnsiConsole.MarkupLine($" :open_file_folder: Switching to directory {Markup.Escape(projectPath)}");
 
         Directory.SetCurrentDirectory(projectPath);
-
+        
+        string publishArgs = subProject?.PublishArgs is { Count: > 0 }
+            ? " " + string.Join(" ", subProject.PublishArgs)
+            : "";
+        
         var commands = new List<string>
         {
             OperatingSystem.IsWindows() ? "rmdir /s /q bin && rmdir /s /q obj" : "rm -rf bin; rm -rf obj",
             "dotnet clean",
             "dotnet build",
-            "dotnet publish -c Release"
+            $"dotnet publish -c Release {publishArgs}"
         };
 
         await AnsiConsole.Status()
