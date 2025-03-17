@@ -31,7 +31,6 @@ public static class MenuManager
                 case "Remove Project":
                     RemoveProject();
                     UpdateProjectsAndChart();
-                    PauseForUserInput("Remove Project");
                     break;
 
                 case "Show Projects":
@@ -51,7 +50,7 @@ public static class MenuManager
                     await ManageDockerProjectsAsync();
                     UpdateProjectsAndChart();
                     break;
-                case "Manage Publish Arguments": // Nueva opción
+                case "Manage Publish Arguments":
                     await ManagePublishArgumentsAsync();
                     UpdateProjectsAndChart();
                     break;
@@ -64,7 +63,6 @@ public static class MenuManager
         }
     }
 
-    // Métodos de la interfaz principal
     private static void DisplayMainMenu()
     {
         AnsiConsole.Clear();
@@ -214,15 +212,27 @@ public static class MenuManager
         if (_projects.Count == 0)
         {
             AnsiConsole.MarkupLine("[yellow]:warning: No projects found.[/]");
+            PauseForUserInput();
             return;
         }
 
-        var projectToRemove = AnsiConsole.Prompt(
-            new SelectionPrompt<string>()
-                .Title("Select a project to remove")
-                .AddChoices(_projects.Keys)
+        var projectsToRemove = AnsiConsole.Prompt(
+            new MultiSelectionPrompt<string>()
+                .Title("Select projects to remove (use spacebar to select, Enter to confirm)")
+                .NotRequired()
+                .AddChoices(_projects.Keys.Append("[chartreuse3_1]Back to Main Menu[/]"))
         );
-        ProjectManager.RemoveProject(projectToRemove);
+
+        if (projectsToRemove.Contains("[chartreuse3_1]Back to Main Menu[/]") || projectsToRemove.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var projectName in projectsToRemove)
+        {
+            ProjectManager.RemoveProject(projectName);
+            AnsiConsole.MarkupLine($"[green]Project '{Markup.Escape(projectName)}' removed successfully.[/]");
+        }
     }
 
     // Nueva funcionalidad para eliminar subproyectos
@@ -610,10 +620,9 @@ public static class MenuManager
                     string buildCommand =
                         $"docker build -f \"{dockerfileFullPath}\" -t {imageTag}{buildArgs} \"{subProjectPathFull}\"";
                     int buildResult = await CommandExecutor.ExecuteDockerCommandAsync(buildCommand);
-                    if (buildResult == 0)
-                        AnsiConsole.MarkupLine($"[green]Docker image '{imageTag}' built successfully![/]");
-                    else
-                        AnsiConsole.MarkupLine("[red]Docker build failed. Check the output above.[/]");
+                    AnsiConsole.MarkupLine(buildResult == 0
+                        ? $"[green]Docker image '{imageTag}' built successfully![/]"
+                        : "[red]Docker build failed. Check the output above.[/]");
                     PauseForUserInput();
                 }
 
@@ -1049,7 +1058,7 @@ private static async Task AddDockerArgAsync(SubProject subProject)
         var tree = new Tree($"[yellow]{Markup.Escape(projectName)}[/]");
         var subProjectNode = tree.AddNode($"[green]{Markup.Escape(subProject.Name)}[/]");
         var publishArgsNode = subProjectNode.AddNode("[blue]Publish Args[/]");
-        var zipNode = subProjectNode.AddNode($"[blue]Zip Publish Output: {(subProject.ZipPublishOutput ? "[green]Enabled[/]" : "[red]Disabled[/]")}[/]");
+        // var zipNode = subProjectNode.AddNode($"[blue]Zip Publish Output: {(subProject.ZipPublishOutput ? "[green]Enabled[/]" : "[red]Disabled[/]")}[/]");
 
         var padder = new Padder(tree).PadLeft(2);
         var panel = new Panel(padder).Header("Publish Arguments");
