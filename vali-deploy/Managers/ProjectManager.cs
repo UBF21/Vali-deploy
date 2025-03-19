@@ -99,41 +99,41 @@ namespace vali_deploy.Managers
             return new Dictionary<string, Project>
             {
                 {
-                    "Servicios-Back-Core",
+                    "Project",
                     new Project
                     {
-                        Path = "/Users/isw21/Documents/ServiciosBackCore/Administracion",
+                        Path = "\\Projects\\Path",
                         SubProjects = new List<SubProject>
                         {
-                            new() { Name = "Maraia", Path = "" },
-                            new() { Name = "grjjxs", Path = "" },
-                            new() { Name = "Administration", Path = "IDSLatam.Service.Administracion.Api" }
+                            new() { Name = "SubProject 1", Path = "" },
+                            new() { Name = "SubProject 2", Path = "" },
+                            new() { Name = "SubProject 3", Path = "" }
                         }
                     }
                 },
                 {
-                    "Servicios-Back",
+                    "Project",
                     new Project
                     {
-                        Path = "\\Proyectos\\Servicios-Back",
+                        Path = "\\Projects\\Path",
                         SubProjects = new List<SubProject>
                         {
-                            new() { Name = "Manols", Path = "" },
-                            new() { Name = "Pepe", Path = "" },
-                            new() { Name = "Lurdes", Path = "" }
+                            new() { Name = "SubProject 1", Path = "" },
+                            new() { Name = "SubProject 2", Path = "" },
+                            new() { Name = "SubProject 3", Path = "" }
                         }
                     }
                 },
                 {
-                    "Teseo-Services",
+                    "Project",
                     new Project
                     {
-                        Path = "C:\\Proyectos\\Teseo-Services",
+                        Path = "C:\\Projects\\Path",
                         SubProjects = new List<SubProject>
                         {
-                            new() { Name = "PapaNico", Path = "" },
-                            new() { Name = "Mila", Path = "" },
-                            new() { Name = "Munich", Path = "" }
+                            new() { Name = "SubProject 1", Path = "" },
+                            new() { Name = "SubProject 1", Path = "" },
+                            new() { Name = "SubProject 1", Path = "" }
                         }
                     }
                 }

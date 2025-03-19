@@ -4,11 +4,19 @@ using vali_deploy.Utils;
 
 namespace vali_deploy.Managers;
 
+/// <summary>
+/// Manages the main menu and user interactions for the Vali-Deploy application.
+/// Provides functionality to add, remove, and manage projects, subprojects, Docker configurations, and publish arguments.
+/// </summary>
 public static class MenuManager
 {
     private static Dictionary<string, Project> _projects = new();
     private static BarChart _barChart = new();
 
+    /// <summary>
+    /// Starts the main menu loop of the application, allowing users to interact with project management features.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public static async Task StartAsync()
     {
         _projects = ProjectManager.LoadOrCreateConfig();
@@ -63,6 +71,9 @@ public static class MenuManager
         }
     }
 
+    /// <summary>
+    /// Displays the main menu header, including the application title, version, and project statistics bar chart.
+    /// </summary>
     private static void DisplayMainMenu()
     {
         AnsiConsole.Clear();
@@ -84,23 +95,34 @@ public static class MenuManager
         AnsiConsole.WriteLine();
     }
 
+    /// <summary>
+    /// Prompts the user to select an option from the main menu.
+    /// </summary>
+    /// <returns>The selected menu option as a string.</returns>
     private static string GetMainMenuOption()
     {
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("What do you want to do?")
                 .AddChoices("Add Project", "Remove Project", "Show Projects", "Configure Publish File Omissions",
-                    "Remove Subprojects", "Manage Docker Projects","Manage Publish Arguments", "[chartreuse3_1]Exit[/]")
+                    "Remove Subprojects", "Manage Docker Projects", "Manage Publish Arguments",
+                    "[chartreuse3_1]Exit[/]")
         );
     }
 
+    /// <summary>
+    /// Updates the projects dictionary and bar chart with the latest data from the configuration.
+    /// </summary>
     private static void UpdateProjectsAndChart()
     {
         _projects = ProjectManager.LoadOrCreateConfig();
         _barChart = ChartManager.CreateBarChart(_projects);
     }
 
-    // Gestión de proyectos
+    /// <summary>
+    /// Prompts the user to add a new project, including its path and subprojects, and saves it to the configuration.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task AddProjectAsync()
     {
         string? projectName = PromptProjectName();
@@ -116,6 +138,10 @@ public static class MenuManager
         AnsiConsole.MarkupLine($"[green]Project '{Markup.Escape(projectName)}' added successfully![/]");
     }
 
+    /// <summary>
+    /// Prompts the user to enter a project name.
+    /// </summary>
+    /// <returns>The project name as a string, or null if the user cancels.</returns>
     private static string? PromptProjectName()
     {
         while (true)
@@ -127,6 +153,10 @@ public static class MenuManager
         }
     }
 
+    /// <summary>
+    /// Prompts the user to enter a project path and validates its existence.
+    /// </summary>
+    /// <returns>The project path as a string, or null if the user cancels.</returns>
     private static string? PromptProjectPath()
     {
         while (true)
@@ -139,6 +169,11 @@ public static class MenuManager
         }
     }
 
+    /// <summary>
+    /// Prompts the user to add subprojects to a project, including their paths and optional Dockerfile paths.
+    /// </summary>
+    /// <param name="projectPath">The path of the parent project.</param>
+    /// <returns>A task that resolves to a list of subprojects, or null if the user cancels without adding any subprojects.</returns>
     private static async Task<List<SubProject>?> PromptSubProjectsAsync(string projectPath)
     {
         var subProjects = new List<SubProject>();
@@ -193,6 +228,11 @@ public static class MenuManager
         return await Task.FromResult(subProjects.Count > 0 ? subProjects : null);
     }
 
+    /// <summary>
+    /// Prompts the user to enter a subproject path and validates its existence.
+    /// </summary>
+    /// <param name="projectPath">The path of the parent project.</param>
+    /// <returns>The subproject path as a string, or null if the user cancels.</returns>
     private static string? PromptSubProjectPath(string projectPath)
     {
         while (true)
@@ -207,6 +247,9 @@ public static class MenuManager
         }
     }
 
+    /// <summary>
+    /// Allows the user to remove one or more projects from the configuration.
+    /// </summary>
     private static void RemoveProject()
     {
         if (_projects.Count == 0)
@@ -235,7 +278,10 @@ public static class MenuManager
         }
     }
 
-    // Nueva funcionalidad para eliminar subproyectos
+    /// <summary>
+    /// Allows the user to remove subprojects from a selected project.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task RemoveSubprojectsAsync()
     {
         while (true)
@@ -280,6 +326,10 @@ public static class MenuManager
         }
     }
 
+    /// <summary>
+    /// Prompts the user to select a project for subproject removal.
+    /// </summary>
+    /// <returns>The selected project name, or "[chartreuse3_1]Back to Main Menu[/]" if the user cancels.</returns>
     private static string PromptProjectSelectionForSubprojectRemoval()
     {
         return AnsiConsole.Prompt(
@@ -289,6 +339,12 @@ public static class MenuManager
         );
     }
 
+    /// <summary>
+    /// Prompts the user to select multiple subprojects to remove from a project.
+    /// </summary>
+    /// <param name="project">The project containing the subprojects.</param>
+    /// <param name="projectName">The name of the project.</param>
+    /// <returns>A list of subproject names to remove, or null if the user cancels.</returns>
     private static List<string>? PromptMultipleSubProjectSelection(Project project, string projectName)
     {
         var selectedSubProjects = AnsiConsole.Prompt(
@@ -305,7 +361,10 @@ public static class MenuManager
         return selectedSubProjects;
     }
 
-    // Mostrar proyectos y subproyectos
+    /// <summary>
+    /// Displays a list of projects and allows the user to select one to view its subprojects.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task ShowProjectsAsync()
     {
         while (true)
@@ -325,6 +384,10 @@ public static class MenuManager
         }
     }
 
+    /// <summary>
+    /// Prompts the user to select a project from the list of available projects.
+    /// </summary>
+    /// <returns>The selected project name, or "[chartreuse3_1]Back to Main Menu[/]" if the user cancels.</returns>
     private static string PromptProjectSelection()
     {
         return AnsiConsole.Prompt(
@@ -334,6 +397,12 @@ public static class MenuManager
         );
     }
 
+    /// <summary>
+    /// Displays the subprojects of a selected project and allows the user to execute commands on a subproject.
+    /// </summary>
+    /// <param name="project">The project containing the subprojects.</param>
+    /// <param name="projectName">The name of the project.</param>
+    /// <returns>A task that resolves to true if a subproject command was executed, false otherwise.</returns>
     private static async Task<bool> ShowSubProjectsAsync(Project project, string projectName)
     {
         while (true)
@@ -367,6 +436,12 @@ public static class MenuManager
         }
     }
 
+    /// <summary>
+    /// Prompts the user to select a subproject from a project.
+    /// </summary>
+    /// <param name="project">The project containing the subprojects.</param>
+    /// <param name="projectName">The name of the project.</param>
+    /// <returns>The selected subproject name, or "[chartreuse3_1]Back to Projects Menu[/]" if the user cancels.</returns>
     private static string PromptSubProjectSelection(Project project, string projectName)
     {
         return AnsiConsole.Prompt(
@@ -376,7 +451,10 @@ public static class MenuManager
         );
     }
 
-    // Gestión de archivos a omitir
+    /// <summary>
+    /// Allows the user to manage files to omit from the publish output for a selected project and subproject.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task ManageProjectFilesToOmitFromPublishAsync()
     {
         while (true)
@@ -394,6 +472,10 @@ public static class MenuManager
         }
     }
 
+    /// <summary>
+    /// Prompts the user to select a project for managing publish file omissions.
+    /// </summary>
+    /// <returns>The selected project name, or "[chartreuse3_1]Back to Main Menu[/]" if the user cancels.</returns>
     private static string PromptProjectForOmitFilesFromPublish()
     {
         return AnsiConsole.Prompt(
@@ -403,6 +485,12 @@ public static class MenuManager
         );
     }
 
+    /// <summary>
+    /// Manages the subprojects of a selected project for configuring publish file omissions.
+    /// </summary>
+    /// <param name="project">The project containing the subprojects.</param>
+    /// <param name="projectName">The name of the project.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task ManageSubProjectFilesFromPublishAsync(Project project, string projectName)
     {
         while (true)
@@ -414,6 +502,12 @@ public static class MenuManager
         }
     }
 
+    /// <summary>
+    /// Prompts the user to select a subproject for managing publish file omissions.
+    /// </summary>
+    /// <param name="project">The project containing the subprojects.</param>
+    /// <param name="projectName">The name of the project.</param>
+    /// <returns>A task that resolves to the selected subproject, or null if the user cancels.</returns>
     private static async Task<SubProject?> SelectSubProjectAsync(Project project, string projectName)
     {
         if (project.SubProjects.Count == 0)
@@ -441,6 +535,12 @@ public static class MenuManager
         return foundSubProject;
     }
 
+    /// <summary>
+    /// Configures the files to omit from the publish output for a selected subproject.
+    /// </summary>
+    /// <param name="subProject">The subproject to configure.</param>
+    /// <param name="projectName">The name of the parent project.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task ConfigurePublishFileOmissionsForSubProjectAsync(SubProject subProject, string projectName)
     {
         bool managingFiles = true;
@@ -469,6 +569,11 @@ public static class MenuManager
         }
     }
 
+    /// <summary>
+    /// Displays the files to omit from the publish output in a tree structure.
+    /// </summary>
+    /// <param name="subProject">The subproject containing the omit files.</param>
+    /// <param name="projectName">The name of the parent project.</param>
     private static void DisplayOmitFilesFromPublish(SubProject subProject, string projectName)
     {
         var tree = new Tree($"[yellow]{Markup.Escape(projectName)}[/]");
@@ -495,6 +600,10 @@ public static class MenuManager
         AnsiConsole.WriteLine();
     }
 
+    /// <summary>
+    /// Prompts the user to select an action for managing publish file omissions.
+    /// </summary>
+    /// <returns>The selected action as a string.</returns>
     private static string PromptFileManagementAction()
     {
         return AnsiConsole.Prompt(
@@ -504,10 +613,15 @@ public static class MenuManager
         );
     }
 
+    /// <summary>
+    /// Allows the user to add files to the list of files to omit from the publish output.
+    /// </summary>
+    /// <param name="subProject">The subproject to add omit files to.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task AddFileToOmitFromPublishAsync(SubProject subProject)
     {
         bool addingFiles = true;
-        bool firstFileAdded = false; // Bandera para saber si ya se agregó el primer archivo
+        bool firstFileAdded = false;
 
         AnsiConsole.Clear();
         AnsiConsole.MarkupLine("[yellow]Adding files to omit (type 'done' to finish)[/]");
@@ -515,7 +629,7 @@ public static class MenuManager
         {
             if (firstFileAdded)
             {
-                AnsiConsole.Clear(); // Limpia la pantalla después del primer archivo
+                AnsiConsole.Clear();
                 AnsiConsole.MarkupLine("[yellow]Adding files to omit (type 'done' to finish)[/]");
             }
 
@@ -546,6 +660,12 @@ public static class MenuManager
 
         await Task.CompletedTask;
     }
+
+    /// <summary>
+    /// Allows the user to remove files from the list of files to omit from the publish output.
+    /// </summary>
+    /// <param name="subProject">The subproject to remove omit files from.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     private static Task RemoveFileToOmitFromPublishAsync(SubProject subProject)
     {
         AnsiConsole.Clear();
@@ -577,7 +697,13 @@ public static class MenuManager
         return Task.CompletedTask;
     }
 
-    // Ejecución de subproyectos
+    /// <summary>
+    /// Executes a command on a selected subproject, such as generating a Microsoft publish or Docker-related actions.
+    /// </summary>
+    /// <param name="project">The parent project of the subproject.</param>
+    /// <param name="subProject">The subproject to execute the command on.</param>
+    /// <param name="projectName">The name of the parent project.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task ExecuteCommandSubProject(Project project, SubProject? subProject, string projectName)
     {
         if (subProject == null) return;
@@ -680,6 +806,10 @@ public static class MenuManager
         }
     }
 
+    /// <summary>
+    /// Manages Docker projects by allowing the user to configure Docker arguments for subprojects with Dockerfiles.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task ManageDockerProjectsAsync()
     {
         while (true)
@@ -707,6 +837,12 @@ public static class MenuManager
         }
     }
 
+    /// <summary>
+    /// Manages Docker subprojects for a selected project by allowing the user to configure Docker arguments.
+    /// </summary>
+    /// <param name="project">The project containing the Docker subprojects.</param>
+    /// <param name="projectName">The name of the project.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task ManageDockerSubProjectsAsync(Project project, string projectName)
     {
         while (true)
@@ -736,7 +872,12 @@ public static class MenuManager
         }
     }
 
-    // Nuevo método para gestionar argumentos Docker al estilo de OmitFiles
+    /// <summary>
+    /// Manages Docker build and run arguments for a selected subproject.
+    /// </summary>
+    /// <param name="subProject">The subproject to manage Docker arguments for.</param>
+    /// <param name="projectName">The name of the parent project.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task ManageDockerArgsAsync(SubProject subProject, string projectName)
     {
         bool managingArgs = true;
@@ -765,7 +906,15 @@ public static class MenuManager
         }
     }
 
-    // Método para mostrar los argumentos Docker en un árbol
+    /// <summary>
+    /// Displays the Docker build and run arguments for a subproject in a tree structure.
+    /// </summary>
+    /// <param name="subProject">The subproject containing the Docker arguments to display.</param>
+    /// <param name="projectName">The name of the parent project.</param>
+    /// <remarks>
+    /// This method creates a visual tree representation of the subproject's Docker arguments, showing both build and run arguments.
+    /// If no arguments are specified, a placeholder message is displayed. The tree is rendered within a panel after displaying the main menu.
+    /// </remarks>
     private static void DisplayDockerArgs(SubProject subProject, string projectName)
     {
         var tree = new Tree($"[yellow]{Markup.Escape(projectName)}[/]");
@@ -805,7 +954,10 @@ public static class MenuManager
         AnsiConsole.WriteLine();
     }
 
-    // Método para mostrar las opciones de gestión de argumentos
+    /// <summary>
+    /// Prompts the user to select an action for managing Docker arguments.
+    /// </summary>
+    /// <returns>The selected action as a string, such as "Add Docker Arg", "Remove Docker Args", or "[chartreuse3_1]Back to Subprojects[/]".</returns>
     private static string PromptDockerArgsAction()
     {
         return AnsiConsole.Prompt(
@@ -815,92 +967,110 @@ public static class MenuManager
         );
     }
 
-    // Método para añadir un argumento Docker
-private static async Task AddDockerArgAsync(SubProject subProject)
-{
-    bool addingArgs = true;
-    while (addingArgs)
+    /// <summary>
+    /// Allows the user to add Docker build or run arguments to a subproject.
+    /// </summary>
+    /// <param name="subProject">The subproject to add Docker arguments to.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// This method prompts the user to select the type of argument (Build Arg or Run Arg) and then allows them to add arguments one by one.
+    /// The user can type 'done' to finish adding arguments of a specific type. Duplicate arguments are not allowed, and the configuration is saved after each addition.
+    /// A brief delay is added after each argument addition to display the confirmation message.
+    /// </remarks>
+    private static async Task AddDockerArgAsync(SubProject subProject)
     {
-        AnsiConsole.Clear();
-        AnsiConsole.MarkupLine("[yellow]Adding a Docker argument[/]");
-        AnsiConsole.WriteLine();
-
-        var type = AnsiConsole.Prompt(
-            new SelectionPrompt<string>()
-                .Title("Select argument type:")
-                .AddChoices("Build Arg", "Run Arg", "[chartreuse3_1]Back[/]")
-        );
-
-        if (type == "[chartreuse3_1]Back[/]")
+        bool addingArgs = true;
+        while (addingArgs)
         {
-            addingArgs = false;
-            continue;
-        }
+            AnsiConsole.Clear();
+            AnsiConsole.MarkupLine("[yellow]Adding a Docker argument[/]");
+            AnsiConsole.WriteLine();
 
-        AnsiConsole.MarkupLine($"[yellow]Adding {type.ToLower()}s (type 'done' to finish)[/]");
-        bool addingTypeArgs = true;
-        bool firstArgAdded = false; // Bandera para saber si ya se agregó el primer argumento
-        while (addingTypeArgs)
-        {
-            if (firstArgAdded)
+            var type = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("Select argument type:")
+                    .AddChoices("Build Arg", "Run Arg", "[chartreuse3_1]Back[/]")
+            );
+
+            if (type == "[chartreuse3_1]Back[/]")
             {
-                AnsiConsole.Clear(); // Limpia la pantalla después del primer argumento
-                AnsiConsole.MarkupLine($"[yellow]Adding {type.ToLower()}s (type 'done' to finish)[/]");
+                addingArgs = false;
+                continue;
             }
 
-            var arg = AnsiConsole.Ask<string>($"Enter {type.ToLower()} (e.g., '-p 8080:80' or '--build-arg ENV=prod'): ");
-            if (arg.ToLower() == "done")
+            AnsiConsole.MarkupLine($"[yellow]Adding {type.ToLower()}s (type 'done' to finish)[/]");
+            bool addingTypeArgs = true;
+            bool firstArgAdded = false; // Bandera para saber si ya se agregó el primer argumento
+            while (addingTypeArgs)
             {
-                addingTypeArgs = false;
-                continue; // Vuelve a la selección de tipo
-            }
-
-            if (string.IsNullOrWhiteSpace(arg))
-            {
-                AnsiConsole.MarkupLine("[red]Argument cannot be empty.[/]");
-            }
-            else
-            {
-                if (type == "Build Arg")
+                if (firstArgAdded)
                 {
-                    subProject.DockerBuildArgs ??= new List<string>();
-                    if (subProject.DockerBuildArgs.Contains(arg))
+                    AnsiConsole.Clear(); // Limpia la pantalla después del primer argumento
+                    AnsiConsole.MarkupLine($"[yellow]Adding {type.ToLower()}s (type 'done' to finish)[/]");
+                }
+
+                var arg = AnsiConsole.Ask<string>(
+                    $"Enter {type.ToLower()} (e.g., '-p 8080:80' or '--build-arg ENV=prod'): ");
+                if (arg.ToLower() == "done")
+                {
+                    addingTypeArgs = false;
+                    continue; // Vuelve a la selección de tipo
+                }
+
+                if (string.IsNullOrWhiteSpace(arg))
+                {
+                    AnsiConsole.MarkupLine("[red]Argument cannot be empty.[/]");
+                }
+                else
+                {
+                    if (type == "Build Arg")
                     {
-                        AnsiConsole.MarkupLine("[red]This build arg is already in the list.[/]");
+                        subProject.DockerBuildArgs ??= new List<string>();
+                        if (subProject.DockerBuildArgs.Contains(arg))
+                        {
+                            AnsiConsole.MarkupLine("[red]This build arg is already in the list.[/]");
+                        }
+                        else
+                        {
+                            subProject.DockerBuildArgs.Add(arg);
+                            AnsiConsole.MarkupLine($"[green]Build arg '{Markup.Escape(arg)}' added.[/]");
+                            ProjectManager.SaveConfig(_projects);
+                            firstArgAdded = true; // Marca que ya se agregó el primer argumento
+                            await Task.Delay(1000); // Pausa de 1.5 segundos para mostrar el mensaje
+                        }
                     }
-                    else
+                    else if (type == "Run Arg")
                     {
-                        subProject.DockerBuildArgs.Add(arg);
-                        AnsiConsole.MarkupLine($"[green]Build arg '{Markup.Escape(arg)}' added.[/]");
-                        ProjectManager.SaveConfig(_projects);
-                        firstArgAdded = true; // Marca que ya se agregó el primer argumento
-                        await Task.Delay(1000); // Pausa de 1.5 segundos para mostrar el mensaje
+                        subProject.DockerRunArgs ??= new List<string>();
+                        if (subProject.DockerRunArgs.Contains(arg))
+                        {
+                            AnsiConsole.MarkupLine("[red]This run arg is already in the list.[/]");
+                        }
+                        else
+                        {
+                            subProject.DockerRunArgs.Add(arg);
+                            AnsiConsole.MarkupLine($"[green]Run arg '{Markup.Escape(arg)}' added.[/]");
+                            ProjectManager.SaveConfig(_projects);
+                            firstArgAdded = true; // Marca que ya se agregó el primer argumento
+                            await Task.Delay(1500); // Pausa de 1.5 segundos para mostrar el mensaje
+                        }
                     }
                 }
-                else if (type == "Run Arg")
-                {
-                    subProject.DockerRunArgs ??= new List<string>();
-                    if (subProject.DockerRunArgs.Contains(arg))
-                    {
-                        AnsiConsole.MarkupLine("[red]This run arg is already in the list.[/]");
-                    }
-                    else
-                    {
-                        subProject.DockerRunArgs.Add(arg);
-                        AnsiConsole.MarkupLine($"[green]Run arg '{Markup.Escape(arg)}' added.[/]");
-                        ProjectManager.SaveConfig(_projects);
-                        firstArgAdded = true; // Marca que ya se agregó el primer argumento
-                        await Task.Delay(1500); // Pausa de 1.5 segundos para mostrar el mensaje
-                    }
-                }
             }
         }
+
+        await Task.CompletedTask;
     }
 
-    await Task.CompletedTask;
-}
-
-// Método para eliminar argumentos Docker con selección múltiple
+    /// <summary>
+    /// Allows the user to remove Docker build or run arguments from a subproject using multiple selection.
+    /// </summary>
+    /// <param name="subProject">The subproject to remove Docker arguments from.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// This method prompts the user to select the type of arguments to remove (Build Args or Run Args) and then allows them to select multiple arguments to remove.
+    /// If no arguments of the selected type exist, a warning is displayed. The configuration is saved after removing the selected arguments.
+    /// </remarks>
     private static Task RemoveDockerArgsAsync(SubProject subProject)
     {
         AnsiConsole.Clear();
@@ -970,6 +1140,14 @@ private static async Task AddDockerArgAsync(SubProject subProject)
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Manages publish arguments for projects by allowing the user to select a project and configure its subprojects' publish arguments.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// This method displays a list of available projects and allows the user to select one to manage its subprojects' publish arguments.
+    /// If no projects are found, a warning is displayed, and the method exits after a brief delay.
+    /// </remarks>
     private static async Task ManagePublishArgumentsAsync()
     {
         while (true)
@@ -992,7 +1170,17 @@ private static async Task AddDockerArgAsync(SubProject subProject)
             await ManagePublishSubProjectsAsync(_projects[projectName], projectName);
         }
     }
-    
+
+    /// <summary>
+    /// Manages the subprojects of a selected project for configuring publish arguments.
+    /// </summary>
+    /// <param name="project">The project containing the subprojects.</param>
+    /// <param name="projectName">The name of the project.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// This method displays a list of subprojects for the selected project and allows the user to select one to manage its publish arguments.
+    /// If no subprojects are found, a warning is displayed, and the method exits after a brief delay.
+    /// </remarks>
     private static async Task ManagePublishSubProjectsAsync(Project project, string projectName)
     {
         while (true)
@@ -1017,7 +1205,17 @@ private static async Task AddDockerArgAsync(SubProject subProject)
             await ManagePublishArgsAsync(subProject, projectName);
         }
     }
-    
+
+    /// <summary>
+    /// Manages the publish arguments for a selected subproject, including adding, removing, and toggling zip output.
+    /// </summary>
+    /// <param name="subProject">The subproject to manage publish arguments for.</param>
+    /// <param name="projectName">The name of the parent project.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// This method provides a menu for the user to add or remove publish arguments, or toggle the zip publish output option.
+    /// The configuration is saved after each change, and a brief delay is added after toggling the zip option to display the confirmation message.
+    /// </remarks>
     private static async Task ManagePublishArgsAsync(SubProject subProject, string projectName)
     {
         bool managingArgs = true;
@@ -1040,7 +1238,8 @@ private static async Task AddDockerArgAsync(SubProject subProject)
                 case "Toggle Zip Publish Output":
                     subProject.ZipPublishOutput = !subProject.ZipPublishOutput;
                     ProjectManager.SaveConfig(_projects);
-                    AnsiConsole.MarkupLine($"[green]Zip Publish Output {(subProject.ZipPublishOutput ? "enabled" : "disabled")}.[/]");
+                    AnsiConsole.MarkupLine(
+                        $"[green]Zip Publish Output {(subProject.ZipPublishOutput ? "enabled" : "disabled")}.[/]");
                     await Task.Delay(1500); // Pausa breve para mostrar el mensaje
                     break;
 
@@ -1052,7 +1251,16 @@ private static async Task AddDockerArgAsync(SubProject subProject)
             }
         }
     }
-    
+
+    /// <summary>
+    /// Displays the publish arguments for a subproject in a tree structure.
+    /// </summary>
+    /// <param name="subProject">The subproject containing the publish arguments to display.</param>
+    /// <param name="projectName">The name of the parent project.</param>
+    /// <remarks>
+    /// This method creates a visual tree representation of the subproject's publish arguments.
+    /// If no arguments are specified, a placeholder message is displayed. The tree is rendered within a panel after displaying the main menu.
+    /// </remarks>
     private static void DisplayPublishArgs(SubProject subProject, string projectName)
     {
         var tree = new Tree($"[yellow]{Markup.Escape(projectName)}[/]");
@@ -1079,16 +1287,31 @@ private static async Task AddDockerArgAsync(SubProject subProject)
         AnsiConsole.Write(panel);
         AnsiConsole.WriteLine();
     }
-    
+
+    /// <summary>
+    /// Prompts the user to select an action for managing publish arguments.
+    /// </summary>
+    /// <returns>The selected action as a string, such as "Add Publish Arg", "Remove Publish Args", "Toggle Zip Publish Output", or "[chartreuse3_1]Back to Subprojects[/]".</returns>
     private static string PromptPublishArgsAction()
     {
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("What do you want to do?")
-                .AddChoices("Add Publish Arg", "Remove Publish Args", "Toggle Zip Publish Output", "[chartreuse3_1]Back to Subprojects[/]")
+                .AddChoices("Add Publish Arg", "Remove Publish Args", "Toggle Zip Publish Output",
+                    "[chartreuse3_1]Back to Subprojects[/]")
         );
     }
-    
+
+    /// <summary>
+    /// Allows the user to add publish arguments to a subproject.
+    /// </summary>
+    /// <param name="subProject">The subproject to add publish arguments to.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// This method prompts the user to enter publish arguments one by one, allowing them to type 'done' to finish.
+    /// Duplicate arguments are not allowed, and the configuration is saved after each addition.
+    /// A brief delay is added after each argument addition to display the confirmation message.
+    /// </remarks>
     private static async Task AddPublishArgAsync(SubProject subProject)
     {
         bool addingArgs = true;
@@ -1104,7 +1327,8 @@ private static async Task AddDockerArgAsync(SubProject subProject)
                 AnsiConsole.MarkupLine("[yellow]Adding publish args (type 'done' to finish)[/]");
             }
 
-            var arg = AnsiConsole.Ask<string>("Enter publish arg (e.g., '--no-restore' or '-p:EnvironmentName=Production'): ");
+            var arg = AnsiConsole.Ask<string>(
+                "Enter publish arg (e.g., '--no-restore' or '-p:EnvironmentName=Production'): ");
             if (arg.ToLower() == "done")
             {
                 addingArgs = false;
@@ -1130,7 +1354,16 @@ private static async Task AddDockerArgAsync(SubProject subProject)
             }
         }
     }
-    
+
+    /// <summary>
+    /// Allows the user to remove publish arguments from a subproject using multiple selection.
+    /// </summary>
+    /// <param name="subProject">The subproject to remove publish arguments from.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// This method displays a list of existing publish arguments and allows the user to select multiple arguments to remove.
+    /// If no arguments exist, a warning is displayed. The configuration is saved after removing the selected arguments, and a brief delay is added to display the confirmation messages.
+    /// </remarks>
     private static async Task RemovePublishArgsAsync(SubProject subProject)
     {
         AnsiConsole.Clear();
@@ -1155,12 +1388,13 @@ private static async Task AddDockerArgAsync(SubProject subProject)
                 subProject.PublishArgs.Remove(arg);
                 AnsiConsole.MarkupLine($"[green]Publish arg '{Markup.Escape(arg)}' removed.[/]");
             }
+
             ProjectManager.SaveConfig(_projects);
         }
 
         await Task.Delay(1500);
     }
-    
+
     // Utilidad
     private static void PauseForUserInput(string context = "")
     {

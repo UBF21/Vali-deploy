@@ -56,9 +56,7 @@ public static class CommandExecutor
         AnsiConsole.MarkupLine($" :open_file_folder: Publication folder found: {Markup.Escape(publishFolder)}");
 
         Directory.SetCurrentDirectory(publishFolder);
-
-        bool isWebApiProject = IsWebApiProject(projectPath);
-
+        
         await AnsiConsole.Status()
             .Spinner(Spinner.Known.Star)
             .StartAsync("Clearing the publication directory...", async ctx =>

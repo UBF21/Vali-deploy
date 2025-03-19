@@ -1,30 +1,42 @@
         <Project Sdk="Microsoft.NET.Sdk">
-        
+
             <PropertyGroup>
                 <OutputType>Exe</OutputType>
                 <TargetFramework>net7.0</TargetFramework>
                 <RootNamespace>vali_deploy</RootNamespace>
                 <ImplicitUsings>enable</ImplicitUsings>
+                <PublishTrimmed>false</PublishTrimmed>
+                <PublishReadyToRun>false</PublishReadyToRun>
                 <Nullable>enable</Nullable>
+                <SelfContained>true</SelfContained>
                 <RuntimeIdentifiers>osx-x64;osx-arm64;linux-x64;win-x64</RuntimeIdentifiers>
-                <PublishSingleFile>true</PublishSingleFile>
+<!--                <PublishSingleFile>true</PublishSingleFile>-->
+                <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
                 <ApplicationIcon>logo.ico</ApplicationIcon>
-
                 <Authors>Felipe Rafael Montenegro Morriberon</Authors>
                 <Description>CLI tool that automates the configuration and publishing of .NET projects, including Web APIs and other applications compatible with 'dotnet publish'. It simplifies the deployment process by generating the publish output automatically.</Description>
                 <PackageTags>vali_deploy;consola;herramienta</PackageTags>
                 <RepositoryUrl>https://github.com/UBF21/Vali-deploy</RepositoryUrl>
-                <Version>1.0.0</Version>
-                <AssemblyVersion>1.0.0</AssemblyVersion>
-                <FileVersion>1.0.0</FileVersion>
+                <Version>1.1.1</Version>
+                <AssemblyVersion>1.1.1</AssemblyVersion>
+                <FileVersion>1.1.1</FileVersion>
                 <Copyright>© 2025 Felipe Rafael M.M</Copyright>
-                <PublishExecutableName>Vali-Deploy_$(Version)</PublishExecutableName>
-                <AssemblyName>Vali-Deploy_$(Version)</AssemblyName>
+                <UseAppHost>true</UseAppHost>
+                <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+                <PublishExecutableName>Vali-Deploy</PublishExecutableName>
+                <AssemblyName>Vali-Deploy</AssemblyName>
             </PropertyGroup>
-        
+
             <ItemGroup>
-              <PackageReference Include="Spectre.Console" Version="0.49.1" />
-              <PackageReference Include="Spectre.Console.Cli" Version="0.49.1" />
+                <PackageReference Include="Spectre.Console" Version="0.49.1" />
+                <PackageReference Include="Spectre.Console.Cli" Version="0.49.1" />
             </ItemGroup>
-        
+
+            <ItemGroup>
+                <None Update="logo.ico">
+                    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+                </None>
+            </ItemGroup>
+            
+            
         </Project>
