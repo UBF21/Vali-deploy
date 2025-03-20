@@ -99,7 +99,7 @@ namespace vali_deploy.Managers
             return new Dictionary<string, Project>
             {
                 {
-                    "Project",
+                    "Project 1",
                     new Project
                     {
                         Path = "\\Projects\\Path",
@@ -112,7 +112,7 @@ namespace vali_deploy.Managers
                     }
                 },
                 {
-                    "Project",
+                    "Project 2",
                     new Project
                     {
                         Path = "\\Projects\\Path",
@@ -125,7 +125,7 @@ namespace vali_deploy.Managers
                     }
                 },
                 {
-                    "Project",
+                    "Project 3",
                     new Project
                     {
                         Path = "C:\\Projects\\Path",

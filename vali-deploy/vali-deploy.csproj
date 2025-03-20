@@ -17,14 +17,14 @@
                 <Description>CLI tool that automates the configuration and publishing of .NET projects, including Web APIs and other applications compatible with 'dotnet publish'. It simplifies the deployment process by generating the publish output automatically.</Description>
                 <PackageTags>vali_deploy;consola;herramienta</PackageTags>
                 <RepositoryUrl>https://github.com/UBF21/Vali-deploy</RepositoryUrl>
-                <Version>1.1.1</Version>
-                <AssemblyVersion>1.1.1</AssemblyVersion>
-                <FileVersion>1.1.1</FileVersion>
+                <Version>1.1.0</Version>
+                <AssemblyVersion>1.1.0</AssemblyVersion>
+                <FileVersion>1.1.0</FileVersion>
                 <Copyright>© 2025 Felipe Rafael M.M</Copyright>
                 <UseAppHost>true</UseAppHost>
                 <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
-                <PublishExecutableName>Vali-Deploy</PublishExecutableName>
-                <AssemblyName>Vali-Deploy</AssemblyName>
+                <PublishExecutableName>Vali-Deploy_1_1_0</PublishExecutableName>
+                <AssemblyName>Vali-Deploy_1_1_0</AssemblyName>
             </PropertyGroup>
 
             <ItemGroup>
@@ -37,6 +37,5 @@
                     <CopyToOutputDirectory>Always</CopyToOutputDirectory>
                 </None>
             </ItemGroup>
-            
-            
+
         </Project>
