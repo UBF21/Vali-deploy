@@ -55,4 +55,17 @@ public class LocalCommandExecutorTests
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("error CS0000", result.Error);
     }
+
+    [Fact]
+    public async Task ExecuteAsync_throws_clear_error_when_Command_arg_missing()
+    {
+        var processRunner = new Mock<IProcessRunner>();
+        var executor = new LocalCommandExecutor(processRunner.Object);
+        var step = new DeployStep { Type = StepType.LocalCommand, Name = "build" };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => executor.ExecuteAsync(step, Context()));
+
+        Assert.Equal("El paso 'build' (LocalCommand) requiere Args[\"Command\"].", ex.Message);
+        processRunner.Verify(p => p.RunAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>()), Times.Never);
+    }
 }

@@ -15,7 +15,12 @@ public class RawCommandExecutor : IStepExecutor
     public async Task<StepResult> ExecuteAsync(DeployStep step, StepExecutionContext context)
     {
         var stopwatch = Stopwatch.StartNew();
-        var command = step.Args["Command"];
+
+        if (!step.Args.TryGetValue("Command", out var command))
+        {
+            throw new InvalidOperationException($"El paso '{step.Name}' ({step.Type}) requiere Args[\"Command\"].");
+        }
+
         var run = await _processRunner.RunAsync(command, context.ProjectPath);
         stopwatch.Stop();
 
