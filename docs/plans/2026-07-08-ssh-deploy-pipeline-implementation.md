@@ -2862,7 +2862,7 @@ public class PipelineTemplateFactoryTests
 
         Assert.Equal(new[]
         {
-            StepType.GitCheckout, StepType.LocalCommand, StepType.LocalCommand, StepType.ZipPublishOutput,
+            StepType.GitCheckout, StepType.ZipPublishOutput,
             StepType.CopyToRemote, StepType.SshCommand, StepType.SshCommand
         }, steps.Select(s => s.Type));
     }
@@ -2954,9 +2954,7 @@ public class PipelineTemplateFactory
         return new List<DeployStep>
         {
             new() { Type = StepType.GitCheckout, Name = "Checkout" },
-            new() { Type = StepType.LocalCommand, Name = "Limpiar bin/obj", Args = { ["Command"] = OperatingSystem.IsWindows() ? "rmdir /s /q bin && rmdir /s /q obj" : "rm -rf bin obj" } },
-            new() { Type = StepType.LocalCommand, Name = "dotnet publish", Args = { ["Command"] = "dotnet publish -c Release" } },
-            new() { Type = StepType.ZipPublishOutput, Name = "Comprimir output" },
+            new() { Type = StepType.ZipPublishOutput, Name = "Build, publish y comprimir output" },
             new() { Type = StepType.CopyToRemote, Name = "Copiar zip al remoto" },
             new() { Type = StepType.SshCommand, Name = "Extraer zip", Args = { ["Command"] = "" } },
             new() { Type = StepType.SshCommand, Name = "Reiniciar servicio/IIS pool", Args = { ["Command"] = "" } }
@@ -2966,6 +2964,8 @@ public class PipelineTemplateFactory
 ```
 
 Nota de alcance (igual que en Task 16): `CreatePublishZipTemplate` deja `CopyToRemote`/ambos `SshCommand` sin Args porque el propio `ZipPublishExecutor` todavía no produce un zip real (`OmitFiles`/compresión deferred a Task 30) — no tiene sentido resolver el path remoto del zip antes de que exista el zip. Placeholder intencional, no un bug.
+
+> **Corrección post-review**: la versión original de este template agregaba dos pasos `LocalCommand` manuales ("Limpiar bin/obj" + "dotnet publish") **antes** de `ZipPublishOutput`, que ya hace exactamente ese trabajo internamente (clean → `dotnet build` → `dotnet publish`, Task 16). Además, el comando de limpieza manual reintroducía el bug de `rmdir /s /q bin && rmdir /s /q obj` fallando en checkout limpio, ya corregido dentro de `ZipPublishExecutor` en los commits `f506954`/`41a407f`. Se eliminaron ambos pasos — `ZipPublishOutput` es autosuficiente, no necesita pasos previos.
 
 - [ ] **Step 4: Correr y verificar que pasa**
 
