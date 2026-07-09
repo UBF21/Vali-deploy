@@ -1,0 +1,34 @@
+# — CLAUDEIGNORE —
+# Generado por /flows/onboard
+# Ignorar: dependencias, builds, generados, assets, logs
+# NO ignorar: código fuente escrito a mano
+
+# .NET build outputs
+bin/
+obj/
+*.dll
+*.pdb
+*.exe
+
+# IDE
+.idea/
+.vs/
+*.user
+*.DotSettings.user
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Secrets (nunca leer)
+.env
+.env.*
+*.pem
+*.key
+*.cert
+secrets/
+appsettings.*.json

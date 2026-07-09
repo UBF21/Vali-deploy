@@ -1,0 +1,9 @@
+{
+  "maxFileLines": 300,
+  "maxMethodLines": 30,
+  "maxParams": 4,
+  "maxClassMethods": 10,
+  "maxNestDepth": 3,
+  "maxCyclomaticComplexity": 10,
+  "maxImports": 15
+}

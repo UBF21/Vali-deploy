@@ -1,0 +1,22 @@
+# .NET build outputs
+bin/
+obj/
+*.dll
+*.pdb
+
+# IDE
+.idea/
+.vs/
+*.user
+*.DotSettings.user
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CodeGraph
+.codegraph/
+
+# Secrets
+.env
+.env.*
