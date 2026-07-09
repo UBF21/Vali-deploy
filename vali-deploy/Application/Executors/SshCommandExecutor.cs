@@ -19,15 +19,14 @@ public class SshCommandExecutor : IStepExecutor
         if (context.Environment.Server == null)
         {
             stopwatch.Stop();
-            return new StepResult
-            {
-                Step = step, Success = false, ExitCode = -1,
-                Error = $"El DeployEnvironment '{context.Environment.Name}' no tiene RemoteServer configurado.",
-                Duration = stopwatch.Elapsed
-            };
+            return RemoteStepResultFactory.NoServer(step, context, stopwatch.Elapsed);
         }
 
-        var command = step.Args["Command"];
+        if (!step.Args.TryGetValue("Command", out var command))
+        {
+            throw new InvalidOperationException($"El paso '{step.Name}' ({step.Type}) requiere Args[\"Command\"].");
+        }
+
         var run = await _sshClientFactory.RunCommandAsync(context.Environment.Server, command);
         stopwatch.Stop();
 

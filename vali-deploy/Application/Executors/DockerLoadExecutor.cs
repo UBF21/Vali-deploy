@@ -19,15 +19,14 @@ public class DockerLoadExecutor : IStepExecutor
         if (context.Environment.Server == null)
         {
             stopwatch.Stop();
-            return new StepResult
-            {
-                Step = step, Success = false, ExitCode = -1,
-                Error = $"El DeployEnvironment '{context.Environment.Name}' no tiene RemoteServer configurado.",
-                Duration = stopwatch.Elapsed
-            };
+            return RemoteStepResultFactory.NoServer(step, context, stopwatch.Elapsed);
         }
 
-        var remoteTarPath = step.Args["RemoteTarPath"];
+        if (!step.Args.TryGetValue("RemoteTarPath", out var remoteTarPath))
+        {
+            throw new InvalidOperationException($"El paso '{step.Name}' ({step.Type}) requiere Args[\"RemoteTarPath\"].");
+        }
+
         var run = await _sshClientFactory.RunCommandAsync(context.Environment.Server, $"docker load -i \"{remoteTarPath}\"");
         stopwatch.Stop();
 

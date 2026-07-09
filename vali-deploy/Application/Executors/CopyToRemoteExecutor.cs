@@ -18,11 +18,19 @@ public class CopyToRemoteExecutor : IStepExecutor
 
         if (context.Environment.Server == null)
         {
-            return NoServerResult(step, context, stopwatch);
+            stopwatch.Stop();
+            return RemoteStepResultFactory.NoServer(step, context, stopwatch.Elapsed);
         }
 
-        var localPath = step.Args["LocalPath"];
-        var remotePath = step.Args["RemotePath"];
+        if (!step.Args.TryGetValue("LocalPath", out var localPath))
+        {
+            throw new InvalidOperationException($"El paso '{step.Name}' ({step.Type}) requiere Args[\"LocalPath\"].");
+        }
+
+        if (!step.Args.TryGetValue("RemotePath", out var remotePath))
+        {
+            throw new InvalidOperationException($"El paso '{step.Name}' ({step.Type}) requiere Args[\"RemotePath\"].");
+        }
 
         try
         {
@@ -38,16 +46,5 @@ public class CopyToRemoteExecutor : IStepExecutor
                 Step = step, Success = false, ExitCode = -1, Error = ex.Message, Duration = stopwatch.Elapsed
             };
         }
-    }
-
-    private static StepResult NoServerResult(DeployStep step, StepExecutionContext context, Stopwatch stopwatch)
-    {
-        stopwatch.Stop();
-        return new StepResult
-        {
-            Step = step, Success = false, ExitCode = -1,
-            Error = $"El DeployEnvironment '{context.Environment.Name}' no tiene RemoteServer configurado.",
-            Duration = stopwatch.Elapsed
-        };
     }
 }

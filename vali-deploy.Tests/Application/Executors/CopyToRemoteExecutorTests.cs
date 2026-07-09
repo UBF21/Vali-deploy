@@ -65,4 +65,59 @@ public class CopyToRemoteExecutorTests
         Assert.False(result.Success);
         Assert.Contains("connection reset", result.Error);
     }
+
+    [Fact]
+    public async Task Fails_fast_when_environment_has_no_remote_server()
+    {
+        var executor = new CopyToRemoteExecutor(new Mock<ISshClientFactory>().Object);
+        var context = new StepExecutionContext
+        {
+            ProjectName = "proj", SubProjectName = "sub", ProjectPath = "/tmp/proj",
+            Environment = new DeployEnvironment { Name = "DEV" }
+        };
+        var step = new DeployStep
+        {
+            Type = StepType.CopyToRemote, Name = "copy compose",
+            Args = { ["LocalPath"] = "/tmp/proj/compose.yml", ["RemotePath"] = "/opt/app/compose.yml" }
+        };
+
+        var result = await executor.ExecuteAsync(step, context);
+
+        Assert.False(result.Success);
+        Assert.Contains("RemoteServer", result.Error);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_throws_clear_error_when_LocalPath_arg_missing()
+    {
+        var sshFactory = new Mock<ISshClientFactory>();
+        var executor = new CopyToRemoteExecutor(sshFactory.Object);
+        var step = new DeployStep
+        {
+            Type = StepType.CopyToRemote, Name = "copy compose",
+            Args = { ["RemotePath"] = "/opt/app/compose.yml" }
+        };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => executor.ExecuteAsync(step, Context()));
+
+        Assert.Equal("El paso 'copy compose' (CopyToRemote) requiere Args[\"LocalPath\"].", ex.Message);
+        sshFactory.Verify(f => f.UploadFileAsync(It.IsAny<RemoteServer>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_throws_clear_error_when_RemotePath_arg_missing()
+    {
+        var sshFactory = new Mock<ISshClientFactory>();
+        var executor = new CopyToRemoteExecutor(sshFactory.Object);
+        var step = new DeployStep
+        {
+            Type = StepType.CopyToRemote, Name = "copy compose",
+            Args = { ["LocalPath"] = "/tmp/proj/compose.yml" }
+        };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => executor.ExecuteAsync(step, Context()));
+
+        Assert.Equal("El paso 'copy compose' (CopyToRemote) requiere Args[\"RemotePath\"].", ex.Message);
+        sshFactory.Verify(f => f.UploadFileAsync(It.IsAny<RemoteServer>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
 }

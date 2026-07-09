@@ -39,4 +39,34 @@ public class DockerLoadExecutorTests
 
         Assert.True(result.Success);
     }
+
+    [Fact]
+    public async Task Fails_fast_when_environment_has_no_remote_server()
+    {
+        var executor = new DockerLoadExecutor(new Mock<ISshClientFactory>().Object);
+        var context = new StepExecutionContext
+        {
+            ProjectName = "proj", SubProjectName = "sub", ProjectPath = "/tmp/proj",
+            Environment = new DeployEnvironment { Name = "DEV" }
+        };
+        var step = new DeployStep { Type = StepType.DockerLoad, Name = "load", Args = { ["RemoteTarPath"] = "/opt/app/image.tar" } };
+
+        var result = await executor.ExecuteAsync(step, context);
+
+        Assert.False(result.Success);
+        Assert.Contains("RemoteServer", result.Error);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_throws_clear_error_when_RemoteTarPath_arg_missing()
+    {
+        var sshFactory = new Mock<ISshClientFactory>();
+        var executor = new DockerLoadExecutor(sshFactory.Object);
+        var step = new DeployStep { Type = StepType.DockerLoad, Name = "load" };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => executor.ExecuteAsync(step, Context()));
+
+        Assert.Equal("El paso 'load' (DockerLoad) requiere Args[\"RemoteTarPath\"].", ex.Message);
+        sshFactory.Verify(f => f.RunCommandAsync(It.IsAny<RemoteServer>(), It.IsAny<string>()), Times.Never);
+    }
 }

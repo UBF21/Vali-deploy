@@ -56,4 +56,17 @@ public class SshCommandExecutorTests
         Assert.False(result.Success);
         Assert.Contains("RemoteServer", result.Error);
     }
+
+    [Fact]
+    public async Task ExecuteAsync_throws_clear_error_when_Command_arg_missing()
+    {
+        var sshFactory = new Mock<ISshClientFactory>();
+        var executor = new SshCommandExecutor(sshFactory.Object);
+        var step = new DeployStep { Type = StepType.SshCommand, Name = "restart" };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => executor.ExecuteAsync(step, ContextWithServer(RemoteOs.Linux)));
+
+        Assert.Equal("El paso 'restart' (SshCommand) requiere Args[\"Command\"].", ex.Message);
+        sshFactory.Verify(f => f.RunCommandAsync(It.IsAny<RemoteServer>(), It.IsAny<string>()), Times.Never);
+    }
 }
