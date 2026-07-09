@@ -62,6 +62,9 @@ public static class MenuManager
                     await ManagePublishArgumentsAsync();
                     UpdateProjectsAndChart();
                     break;
+                case "Manage Environments":
+                    await Presentation.EnvironmentMenu.StartAsync(CompositionRoot.CreateProjectRepository());
+                    break;
                 case "[chartreuse3_1]Exit[/]":
                     running = false;
                     AnsiConsole.MarkupLine("[yellow] Leaving...[/]");
@@ -105,7 +108,7 @@ public static class MenuManager
             new SelectionPrompt<string>()
                 .Title("What do you want to do?")
                 .AddChoices("Add Project", "Remove Project", "Show Projects", "Configure Publish File Omissions",
-                    "Remove Subprojects", "Manage Docker Projects", "Manage Publish Arguments",
+                    "Remove Subprojects", "Manage Docker Projects", "Manage Publish Arguments", "Manage Environments",
                     "[chartreuse3_1]Exit[/]")
         );
     }
