@@ -26,7 +26,7 @@ public class DockerBuildExecutorTests
         var processRunner = new Mock<IProcessRunner>();
         processRunner
             .Setup(p => p.RunAsync(
-                "docker build -f \"/tmp/proj/Dockerfile\" -t proj-sub:latest \"/tmp/proj\"",
+                "docker build -f \"/tmp/proj/Dockerfile\" -t proj-sub:latest --label project=proj-sub \"/tmp/proj\"",
                 "/tmp/proj",
                 It.Is<IDictionary<string, string>>(d => d["DOCKER_BUILDKIT"] == "1")))
             .ReturnsAsync(new ProcessRunResult(0, "Successfully built", ""));
@@ -49,7 +49,7 @@ public class DockerBuildExecutorTests
         var processRunner = new Mock<IProcessRunner>();
         processRunner
             .Setup(p => p.RunAsync(
-                "docker build -f \"/tmp/proj/Dockerfile\" -t proj-sub:latest --build-arg KEY=VALUE \"/tmp/proj\"",
+                "docker build -f \"/tmp/proj/Dockerfile\" -t proj-sub:latest --build-arg KEY=VALUE --label project=proj-sub \"/tmp/proj\"",
                 "/tmp/proj",
                 It.IsAny<IDictionary<string, string>>()))
             .ReturnsAsync(new ProcessRunResult(0, "", ""));
@@ -69,5 +69,32 @@ public class DockerBuildExecutorTests
         var result = await executor.ExecuteAsync(step, Context());
 
         Assert.True(result.Success);
+    }
+
+    [Fact]
+    public async Task Includes_project_label_for_prune_filtering()
+    {
+        var processRunner = new Mock<IProcessRunner>();
+        processRunner
+            .Setup(p => p.RunAsync(
+                It.Is<string>(c => c.Contains("--label project=proj-sub")),
+                "/tmp/proj",
+                It.IsAny<IDictionary<string, string>>()))
+            .ReturnsAsync(new ProcessRunResult(0, "", ""));
+
+        var executor = new DockerBuildExecutor(processRunner.Object);
+        var step = new DeployStep
+        {
+            Type = StepType.DockerBuild, Name = "build image",
+            Args = { ["Dockerfile"] = "/tmp/proj/Dockerfile", ["ImageTag"] = "proj-sub:latest" }
+        };
+
+        var result = await executor.ExecuteAsync(step, Context());
+
+        Assert.True(result.Success);
+        processRunner.Verify(p => p.RunAsync(
+            It.Is<string>(c => c.Contains("--label project=proj-sub")),
+            "/tmp/proj",
+            It.IsAny<IDictionary<string, string>>()), Times.Once);
     }
 }

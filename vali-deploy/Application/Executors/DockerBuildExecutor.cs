@@ -29,8 +29,9 @@ public class DockerBuildExecutor : IStepExecutor
         var imageTag = step.Args["ImageTag"];
         var buildArgs = step.Args.GetValueOrDefault("BuildArgs");
         var buildArgsSuffix = string.IsNullOrWhiteSpace(buildArgs) ? "" : $" {buildArgs}";
+        var projectLabel = $"{context.ProjectName.ToLower()}-{context.SubProjectName.ToLower()}";
 
-        return $"docker build -f \"{dockerfile}\" -t {imageTag}{buildArgsSuffix} \"{context.ProjectPath}\"";
+        return $"docker build -f \"{dockerfile}\" -t {imageTag}{buildArgsSuffix} --label project={projectLabel} \"{context.ProjectPath}\"";
     }
 
     private static StepResult BuildResult(DeployStep step, ProcessRunResult run, TimeSpan duration) => new()
