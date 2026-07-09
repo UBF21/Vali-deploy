@@ -2824,6 +2824,8 @@ git commit -m "feat(application): agregar executores DockerComposePull/Up/Down"
 
 Genera las dos plantillas del spec (Docker Compose y Publish/Zip), ambas arrancando con `GitCheckout` cuando el proyecto es un repo git.
 
+> **Nota post-Task-19 (decisión del usuario)**: la plantilla Docker Compose original de este plan no seteaba `RemotePath`/`ComposeFilePath`/`RegistryTag` — Args requeridos por `CopyToRemoteExecutor`/`DockerComposePull/UpExecutor`/`DockerPushExecutor` respectivamente, todos ya implementados y con guard `TryGetValue` que revienta si el Arg falta. Decisión tomada: (1) el path remoto usa la convención `/opt/{project}-{subproject}` por defecto, pero `DeployEnvironment.RemoteDeployPath` (agregado en el commit `9111b5d`, opcional) lo overridea cuando el nombre del proyecto en el server no coincide; (2) `RegistryTag` queda como placeholder vacío (`""`) — se completa a mano en `PipelineEditorMenu` (Task 26), misma filosofía que los pasos `SshCommand` vacíos ("Extraer zip"/"Reiniciar servicio") del template Publish/Zip. Por eso `CreateDockerComposeTemplate` ahora recibe un `DeployEnvironment environment` además de `projectName`/`subProjectName` — firma distinta a versiones anteriores de este plan, no es un error de copy-paste.
+
 - [ ] **Step 1: Escribir el test**
 
 ```csharp
@@ -2834,12 +2836,15 @@ namespace vali_deploy.Tests.Application;
 
 public class PipelineTemplateFactoryTests
 {
+    private static DeployEnvironment Environment(string? remoteDeployPath = null) =>
+        new() { Name = "PROD", RemoteDeployPath = remoteDeployPath };
+
     [Fact]
     public void DockerCompose_template_follows_spec_order()
     {
         var factory = new PipelineTemplateFactory();
 
-        var steps = factory.CreateDockerComposeTemplate(projectName: "shop", subProjectName: "api");
+        var steps = factory.CreateDockerComposeTemplate(projectName: "shop", subProjectName: "api", environment: Environment());
 
         Assert.Equal(new[]
         {
@@ -2867,10 +2872,47 @@ public class PipelineTemplateFactoryTests
     {
         var factory = new PipelineTemplateFactory();
 
-        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api");
+        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", environment: Environment());
         var buildStep = steps.Single(s => s.Type == StepType.DockerBuild);
 
         Assert.Equal("shop-api:latest", buildStep.Args["ImageTag"]);
+    }
+
+    [Fact]
+    public void DockerCompose_template_uses_opt_convention_for_remote_path_by_default()
+    {
+        var factory = new PipelineTemplateFactory();
+
+        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", environment: Environment());
+        var copyStep = steps.Single(s => s.Type == StepType.CopyToRemote);
+        var pullStep = steps.Single(s => s.Type == StepType.DockerComposePull);
+
+        Assert.Equal("/opt/shop-api/compose.yml", copyStep.Args["RemotePath"]);
+        Assert.Equal("/opt/shop-api/compose.yml", pullStep.Args["ComposeFilePath"]);
+    }
+
+    [Fact]
+    public void DockerCompose_template_uses_environment_RemoteDeployPath_override_when_set()
+    {
+        var factory = new PipelineTemplateFactory();
+
+        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", environment: Environment("/srv/apps/legacy-name"));
+        var copyStep = steps.Single(s => s.Type == StepType.CopyToRemote);
+        var upStep = steps.Single(s => s.Type == StepType.DockerComposeUp);
+
+        Assert.Equal("/srv/apps/legacy-name/compose.yml", copyStep.Args["RemotePath"]);
+        Assert.Equal("/srv/apps/legacy-name/compose.yml", upStep.Args["ComposeFilePath"]);
+    }
+
+    [Fact]
+    public void DockerCompose_template_leaves_RegistryTag_as_empty_placeholder_for_manual_completion()
+    {
+        var factory = new PipelineTemplateFactory();
+
+        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", environment: Environment());
+        var pushStep = steps.Single(s => s.Type == StepType.DockerPush);
+
+        Assert.Equal("", pushStep.Args["RegistryTag"]);
     }
 }
 ```
@@ -2889,18 +2931,20 @@ namespace vali_deploy.Application;
 
 public class PipelineTemplateFactory
 {
-    public List<DeployStep> CreateDockerComposeTemplate(string projectName, string subProjectName)
+    public List<DeployStep> CreateDockerComposeTemplate(string projectName, string subProjectName, DeployEnvironment environment)
     {
         var imageTag = $"{projectName.ToLower()}-{subProjectName.ToLower()}:latest";
+        var remoteDeployPath = environment.RemoteDeployPath ?? $"/opt/{projectName.ToLower()}-{subProjectName.ToLower()}";
+        var remoteComposeFilePath = $"{remoteDeployPath}/compose.yml";
 
         return new List<DeployStep>
         {
             new() { Type = StepType.GitCheckout, Name = "Checkout" },
             new() { Type = StepType.DockerBuild, Name = "Build imagen", Args = { ["ImageTag"] = imageTag, ["Dockerfile"] = "Dockerfile" } },
-            new() { Type = StepType.DockerPush, Name = "Push a registry", Args = { ["ImageTag"] = imageTag } },
-            new() { Type = StepType.CopyToRemote, Name = "Copiar compose.yml", Args = { ["LocalPath"] = "compose.yml" } },
-            new() { Type = StepType.DockerComposePull, Name = "Compose pull" },
-            new() { Type = StepType.DockerComposeUp, Name = "Compose up" },
+            new() { Type = StepType.DockerPush, Name = "Push a registry", Args = { ["ImageTag"] = imageTag, ["RegistryTag"] = "" } },
+            new() { Type = StepType.CopyToRemote, Name = "Copiar compose.yml", Args = { ["LocalPath"] = "compose.yml", ["RemotePath"] = remoteComposeFilePath } },
+            new() { Type = StepType.DockerComposePull, Name = "Compose pull", Args = { ["ComposeFilePath"] = remoteComposeFilePath } },
+            new() { Type = StepType.DockerComposeUp, Name = "Compose up", Args = { ["ComposeFilePath"] = remoteComposeFilePath } },
             new() { Type = StepType.DockerImagePrune, Name = "Limpiar imágenes viejas", Args = { ["ImageNameFilter"] = $"{projectName.ToLower()}-{subProjectName.ToLower()}" } }
         };
     }
@@ -2921,10 +2965,12 @@ public class PipelineTemplateFactory
 }
 ```
 
+Nota de alcance (igual que en Task 16): `CreatePublishZipTemplate` deja `CopyToRemote`/ambos `SshCommand` sin Args porque el propio `ZipPublishExecutor` todavía no produce un zip real (`OmitFiles`/compresión deferred a Task 30) — no tiene sentido resolver el path remoto del zip antes de que exista el zip. Placeholder intencional, no un bug.
+
 - [ ] **Step 4: Correr y verificar que pasa**
 
 Run: `dotnet test --filter PipelineTemplateFactoryTests`
-Expected: `Passed!  - Failed: 0, Passed: 3, Skipped: 0`
+Expected: `Passed!  - Failed: 0, Passed: 6, Skipped: 0`
 
 - [ ] **Step 5: Commit**
 
@@ -3442,6 +3488,9 @@ public static class EnvironmentMenu
                     ? AnsiConsole.Ask<string>("Nombre de la variable de entorno con la passphrase:")
                     : null
             };
+            environment.RemoteDeployPath = AnsiConsole.Confirm("¿El path de deploy remoto no sigue la convención /opt/{proyecto}-{subproyecto}?")
+                ? AnsiConsole.Ask<string>("Path de deploy remoto (ej. /srv/apps/legacy-name):")
+                : null;
         }
 
         config.Environments.Add(environment);
@@ -3510,6 +3559,7 @@ public static class PipelineEditorMenu
 
         var environmentName = AnsiConsole.Prompt(
             new SelectionPrompt<string>().Title("Elegí el entorno:").AddChoices(config.Environments.Select(e => e.Name)));
+        var environment = config.Environments.First(e => e.Name == environmentName);
 
         if (!subProject.PipelinesByEnvironment.ContainsKey(environmentName))
         {
@@ -3518,7 +3568,7 @@ public static class PipelineEditorMenu
 
             var factory = new PipelineTemplateFactory();
             subProject.PipelinesByEnvironment[environmentName] = template == "Docker Compose"
-                ? factory.CreateDockerComposeTemplate(projectName, subProject.Name)
+                ? factory.CreateDockerComposeTemplate(projectName, subProject.Name, environment)
                 : factory.CreatePublishZipTemplate(projectName, subProject.Name);
 
             config.Projects[projectName].SubProjects.First(s => s.Name == subProject.Name).PipelinesByEnvironment = subProject.PipelinesByEnvironment;
