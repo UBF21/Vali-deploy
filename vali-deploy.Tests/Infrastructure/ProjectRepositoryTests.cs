@@ -1,3 +1,4 @@
+using System.Text.Json;
 using vali_deploy.Domain;
 using vali_deploy.Infrastructure;
 using vali_deploy.Models;
@@ -7,6 +8,12 @@ namespace vali_deploy.Tests.Infrastructure;
 public class ProjectRepositoryTests
 {
     private static string NewTempConfigPath() => Path.Combine(Directory.CreateTempSubdirectory().FullName, "deploy_config.json");
+
+    private static Dictionary<string, Project> SampleProjects() => new()
+    {
+        ["real-project-a"] = new Project { Path = @"C:\src\a", SubProjects = new List<SubProject> { new() { Name = "Api", Path = "Api" } } },
+        ["real-project-b"] = new Project { Path = @"C:\src\b", SubProjects = new List<SubProject>() }
+    };
 
     [Fact]
     public void Load_creates_default_config_when_file_does_not_exist()
@@ -34,5 +41,79 @@ public class ProjectRepositoryTests
         Assert.Single(reloaded.Environments);
         Assert.Equal("QA", reloaded.Environments[0].Name);
         Assert.True(reloaded.Projects.ContainsKey("demo"));
+    }
+
+    // ---------------------------------------------------------------
+    // Gap de orden en la interop con ProjectManager: Load() debe ser seguro sin
+    // importar cuál de las dos clases (ProjectManager o ProjectRepository) toca el
+    // archivo legacy-flat primero. Ver comentario de clase en ProjectRepository.cs.
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void Load_reads_legacy_flat_shape_json_with_real_projects()
+    {
+        var configPath = NewTempConfigPath();
+        string legacyFlatJson = JsonSerializer.Serialize(SampleProjects(), new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(configPath, legacyFlatJson);
+
+        var repository = new ProjectRepository(configPath);
+        var config = repository.Load();
+
+        Assert.Equal(2, config.Projects.Count);
+        Assert.True(config.Projects.ContainsKey("real-project-a"));
+        Assert.Equal(@"C:\src\a", config.Projects["real-project-a"].Path);
+        Assert.True(config.Projects.ContainsKey("real-project-b"));
+        Assert.Empty(config.Environments);
+    }
+
+    [Fact]
+    public void Load_then_Save_on_dangerous_order_does_not_wipe_legacy_projects()
+    {
+        // Reproduce exactamente la secuencia peligrosa reportada: un archivo legacy-flat
+        // con proyectos reales ya en disco (escrito por ProjectManager en algún momento
+        // anterior, o a mano), y "Manage Environments" es LO PRIMERO que toca el archivo
+        // en esta ejecución — ProjectRepository nunca lo vio en forma DeployConfig antes.
+        var configPath = NewTempConfigPath();
+        string legacyFlatJson = JsonSerializer.Serialize(SampleProjects(), new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(configPath, legacyFlatJson);
+
+        var repository = new ProjectRepository(configPath);
+
+        // 1) Load() es la primera operación que ProjectRepository ejecuta sobre este archivo.
+        var config = repository.Load();
+        Assert.Equal(2, config.Projects.Count); // Si esto falla, el bug de Scenario B sigue abierto.
+
+        // 2) El usuario agrega un DeployEnvironment desde "Manage Environments" y se guarda.
+        config.Environments.Add(new DeployEnvironment { Name = "Prod", DefaultBranch = "main" });
+        repository.Save(config);
+
+        // 3) Releer el archivo: los proyectos reales deben seguir ahí, no haber sido
+        // reemplazados por un DeployConfig vacío.
+        var reloaded = repository.Load();
+        Assert.Equal(2, reloaded.Projects.Count);
+        Assert.True(reloaded.Projects.ContainsKey("real-project-a"));
+        Assert.True(reloaded.Projects.ContainsKey("real-project-b"));
+        Assert.Single(reloaded.Environments);
+        Assert.Equal("Prod", reloaded.Environments[0].Name);
+    }
+
+    [Fact]
+    public void Load_still_reads_DeployConfig_shape_correctly_regression_guard()
+    {
+        var configPath = NewTempConfigPath();
+        var originalConfig = new DeployConfig
+        {
+            Projects = SampleProjects(),
+            Environments = new List<DeployEnvironment> { new() { Name = "QA", DefaultBranch = "develop" } }
+        };
+        File.WriteAllText(configPath, JsonSerializer.Serialize(originalConfig, new JsonSerializerOptions { WriteIndented = true }));
+
+        var repository = new ProjectRepository(configPath);
+        var config = repository.Load();
+
+        Assert.Equal(2, config.Projects.Count);
+        Assert.True(config.Projects.ContainsKey("real-project-a"));
+        Assert.Single(config.Environments);
+        Assert.Equal("QA", config.Environments[0].Name);
     }
 }
