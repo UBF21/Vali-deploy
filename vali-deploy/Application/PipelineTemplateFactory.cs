@@ -27,9 +27,7 @@ public class PipelineTemplateFactory
         return new List<DeployStep>
         {
             new() { Type = StepType.GitCheckout, Name = "Checkout" },
-            new() { Type = StepType.LocalCommand, Name = "Limpiar bin/obj", Args = { ["Command"] = OperatingSystem.IsWindows() ? "rmdir /s /q bin && rmdir /s /q obj" : "rm -rf bin obj" } },
-            new() { Type = StepType.LocalCommand, Name = "dotnet publish", Args = { ["Command"] = "dotnet publish -c Release" } },
-            new() { Type = StepType.ZipPublishOutput, Name = "Comprimir output" },
+            new() { Type = StepType.ZipPublishOutput, Name = "Build, publish y comprimir output" },
             new() { Type = StepType.CopyToRemote, Name = "Copiar zip al remoto" },
             new() { Type = StepType.SshCommand, Name = "Extraer zip", Args = { ["Command"] = "" } },
             new() { Type = StepType.SshCommand, Name = "Reiniciar servicio/IIS pool", Args = { ["Command"] = "" } }

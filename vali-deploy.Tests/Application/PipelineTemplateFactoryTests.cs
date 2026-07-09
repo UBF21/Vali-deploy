@@ -31,7 +31,7 @@ public class PipelineTemplateFactoryTests
 
         Assert.Equal(new[]
         {
-            StepType.GitCheckout, StepType.LocalCommand, StepType.LocalCommand, StepType.ZipPublishOutput,
+            StepType.GitCheckout, StepType.ZipPublishOutput,
             StepType.CopyToRemote, StepType.SshCommand, StepType.SshCommand
         }, steps.Select(s => s.Type));
     }
