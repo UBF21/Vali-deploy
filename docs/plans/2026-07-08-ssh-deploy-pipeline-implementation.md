@@ -2669,6 +2669,8 @@ public class DockerComposeExecutorsTests
 Run: `dotnet test --filter DockerComposeExecutorsTests`
 Expected: FAIL — los tres tipos no existen (CS0246).
 
+> **Nota post-Task-18**: `RemoteStepResultFactory` (creado en el fix de consolidación de Task 18, commit `744a3bc`) ya existe con `NoServer(step, context, duration)`. Los 3 executores de esta tarea deben usarlo (no reinventar el guard inline) y validar `ComposeFilePath` con `TryGetValue` + `InvalidOperationException` (mismo patrón de `d5facbf`), no con el indexador `Args["ComposeFilePath"]` directo que mostraban las versiones anteriores de este plan. El código de abajo ya refleja eso — si al llegar a esta tarea `RemoteStepResultFactory` tiene también un helper `FromProcessResult(step, run, duration)` (sugerido en la review de Task 18 para eliminar el mapeo `ProcessRunResult→StepResult` duplicado en ~8 executores), usarlo también en vez de construir el `StepResult` a mano.
+
 - [ ] **Step 3: Crear `DockerComposePullExecutor.cs`**
 
 ```csharp
@@ -2689,8 +2691,18 @@ public class DockerComposePullExecutor : IStepExecutor
     public async Task<StepResult> ExecuteAsync(DeployStep step, StepExecutionContext context)
     {
         var stopwatch = Stopwatch.StartNew();
-        var composeFilePath = step.Args["ComposeFilePath"];
-        var run = await _sshClientFactory.RunCommandAsync(context.Environment.Server!, $"docker compose -f \"{composeFilePath}\" pull");
+
+        if (context.Environment.Server == null)
+        {
+            return RemoteStepResultFactory.NoServer(step, context, stopwatch.Elapsed);
+        }
+
+        if (!step.Args.TryGetValue("ComposeFilePath", out var composeFilePath))
+        {
+            throw new InvalidOperationException($"El paso '{step.Name}' ({step.Type}) requiere Args[\"ComposeFilePath\"].");
+        }
+
+        var run = await _sshClientFactory.RunCommandAsync(context.Environment.Server, $"docker compose -f \"{composeFilePath}\" pull");
         stopwatch.Stop();
 
         return new StepResult
@@ -2722,8 +2734,18 @@ public class DockerComposeUpExecutor : IStepExecutor
     public async Task<StepResult> ExecuteAsync(DeployStep step, StepExecutionContext context)
     {
         var stopwatch = Stopwatch.StartNew();
-        var composeFilePath = step.Args["ComposeFilePath"];
-        var run = await _sshClientFactory.RunCommandAsync(context.Environment.Server!, $"docker compose -f \"{composeFilePath}\" up -d");
+
+        if (context.Environment.Server == null)
+        {
+            return RemoteStepResultFactory.NoServer(step, context, stopwatch.Elapsed);
+        }
+
+        if (!step.Args.TryGetValue("ComposeFilePath", out var composeFilePath))
+        {
+            throw new InvalidOperationException($"El paso '{step.Name}' ({step.Type}) requiere Args[\"ComposeFilePath\"].");
+        }
+
+        var run = await _sshClientFactory.RunCommandAsync(context.Environment.Server, $"docker compose -f \"{composeFilePath}\" up -d");
         stopwatch.Stop();
 
         return new StepResult
@@ -2755,8 +2777,18 @@ public class DockerComposeDownExecutor : IStepExecutor
     public async Task<StepResult> ExecuteAsync(DeployStep step, StepExecutionContext context)
     {
         var stopwatch = Stopwatch.StartNew();
-        var composeFilePath = step.Args["ComposeFilePath"];
-        var run = await _sshClientFactory.RunCommandAsync(context.Environment.Server!, $"docker compose -f \"{composeFilePath}\" down");
+
+        if (context.Environment.Server == null)
+        {
+            return RemoteStepResultFactory.NoServer(step, context, stopwatch.Elapsed);
+        }
+
+        if (!step.Args.TryGetValue("ComposeFilePath", out var composeFilePath))
+        {
+            throw new InvalidOperationException($"El paso '{step.Name}' ({step.Type}) requiere Args[\"ComposeFilePath\"].");
+        }
+
+        var run = await _sshClientFactory.RunCommandAsync(context.Environment.Server, $"docker compose -f \"{composeFilePath}\" down");
         stopwatch.Stop();
 
         return new StepResult
@@ -2767,6 +2799,8 @@ public class DockerComposeDownExecutor : IStepExecutor
     }
 }
 ```
+
+Tests de estos 3 executores deben agregar casos para: `Fails_fast_when_environment_has_no_remote_server` (usando `RemoteStepResultFactory.NoServer`) y `ExecuteAsync_throws_clear_error_when_ComposeFilePath_arg_missing` (con `Times.Never` sobre `RunCommandAsync`), además de los tests de happy-path ya definidos en `DockerComposeExecutorsTests` más abajo — siguiendo el mismo patrón aplicado en el commit `744a3bc` a `SshCommandExecutor`/`DockerLoadExecutor`/`CopyToRemoteExecutor`.
 
 - [ ] **Step 6: Correr y verificar que pasan**
 
