@@ -27,6 +27,12 @@ public class PipelineRunner : IPipelineRunner
             }
 
             var result = await ExecuteWithRetryAsync(executor, step, context);
+
+            if (!result.Success && step.ContinueOnFailure)
+            {
+                result.WasSkippedDueToContinueOnFailure = true;
+            }
+
             stepResults.Add(result);
             progress?.Report(result);
 

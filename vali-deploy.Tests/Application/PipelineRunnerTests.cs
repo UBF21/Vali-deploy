@@ -54,6 +54,7 @@ public class PipelineRunnerTests
 
         Assert.False(result.Success);
         Assert.Single(result.Steps);
+        Assert.False(result.Steps[0].WasSkippedDueToContinueOnFailure);
         neverCalled.Verify(e => e.ExecuteAsync(It.IsAny<DeployStep>(), It.IsAny<StepExecutionContext>()), Times.Never);
     }
 
@@ -81,6 +82,8 @@ public class PipelineRunnerTests
 
         Assert.False(result.Success);
         Assert.Equal(2, result.Steps.Count);
+        Assert.True(result.Steps[0].WasSkippedDueToContinueOnFailure);
+        Assert.False(result.Steps[1].WasSkippedDueToContinueOnFailure);
         next.Verify(e => e.ExecuteAsync(It.IsAny<DeployStep>(), It.IsAny<StepExecutionContext>()), Times.Once);
     }
 
