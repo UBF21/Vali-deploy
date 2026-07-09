@@ -43,9 +43,9 @@ public class ProjectRepositoryTests
     }
 
     // ---------------------------------------------------------------
-    // Gap de orden en la interop con ProjectManager: Load() debe ser seguro sin
-    // importar cuál de las dos clases (ProjectManager o ProjectRepository) toca el
-    // archivo legacy-flat primero. Ver comentario de clase en ProjectRepository.cs.
+    // Regresión histórica (Tarea 30 retiró la clase legacy que causaba esto): Load() debe
+    // seguir siendo seguro ante un archivo legacy-flat preexistente en disco, sin importar
+    // qué versión anterior del código lo haya escrito. Ver comentario de clase en ProjectRepository.cs.
     // ---------------------------------------------------------------
 
     [Fact]
@@ -69,8 +69,8 @@ public class ProjectRepositoryTests
     public void Load_then_Save_on_dangerous_order_does_not_wipe_legacy_projects()
     {
         // Reproduce exactamente la secuencia peligrosa reportada: un archivo legacy-flat
-        // con proyectos reales ya en disco (escrito por ProjectManager en algún momento
-        // anterior, o a mano), y "Manage Environments" es LO PRIMERO que toca el archivo
+        // con proyectos reales ya en disco (escrito por la clase legacy retirada en la Tarea 30
+        // en algún momento anterior, o a mano), y "Manage Environments" es LO PRIMERO que toca el archivo
         // en esta ejecución — ProjectRepository nunca lo vio en forma DeployConfig antes.
         var configPath = NewTempConfigPath();
         string legacyFlatJson = JsonSerializer.Serialize(SampleProjects(), new JsonSerializerOptions { WriteIndented = true });

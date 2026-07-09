@@ -4,13 +4,15 @@ using vali_deploy.Domain;
 namespace vali_deploy.Infrastructure;
 
 /// <summary>
-/// INTEROP: este archivo (deploy_config.json) también es leído/escrito por
-/// vali_deploy.Managers.ProjectManager (forma legacy: el JSON raíz ES un
-/// Dictionary&lt;string, Project&gt;). Load() debe ser seguro sin importar cuál de las
-/// dos clases toca el archivo primero — ver ProjectManager.ParseProjectsLeniently para
-/// el mismo heurístico aplicado en espejo. Sin esto, Load() sobre un archivo legacy-flat
-/// deserializaba silenciosamente como DeployConfig vacío (Projects.Count == 0), y un Save()
-/// posterior (p.ej. desde EnvironmentMenu) destruía todos los proyectos reales en disco.
+/// HISTORIAL: hasta la Tarea 30, este archivo (deploy_config.json) también era leído/escrito
+/// por la clase legacy (ya retirada) que persistía proyectos con el JSON raíz siendo
+/// directamente un Dictionary&lt;string, Project&gt; (sin envolver en {"Projects", "Environments"}).
+/// Esa clase y esta escribían formas de JSON incompatibles sobre el mismo archivo, lo cual
+/// causaba pérdida de datos. Load() conserva el parseo tolerante de esa forma legacy-flat
+/// (ver <see cref="ParseConfigLeniently"/>) por si algún usuario todavía tiene un
+/// deploy_config.json en esa forma antigua en disco — sin esto, Load() lo deserializaba
+/// silenciosamente como DeployConfig vacío (Projects.Count == 0), y un Save() posterior
+/// (p.ej. desde EnvironmentMenu) destruía todos los proyectos reales en disco.
 /// </summary>
 public class ProjectRepository : IProjectRepository
 {
@@ -50,13 +52,13 @@ public class ProjectRepository : IProjectRepository
     /// <summary>
     /// Deserializa DeployConfig tolerando ambas formas del archivo:
     /// - Forma DeployConfig (propia): { "Projects": {...}, "Environments": [...] }.
-    /// - Forma legacy flat (escrita por ProjectManager): el documento raíz ES el
-    ///   Dictionary&lt;string, Project&gt; directamente — se envuelve en un DeployConfig
+    /// - Forma legacy flat (escrita por la clase legacy retirada en la Tarea 30): el documento
+    ///   raíz ES el Dictionary&lt;string, Project&gt; directamente — se envuelve en un DeployConfig
     ///   con Environments vacío en vez de deserializarse (silenciosamente) como config vacía.
     ///
     /// Se exige la presencia de AMBAS propiedades "Projects" y "Environments" en la raíz para
-    /// clasificar el documento como forma DeployConfig, en espejo con
-    /// ProjectManager.ParseProjectsLeniently (mismo heurístico, misma justificación).
+    /// clasificar el documento como forma DeployConfig — evita falsos positivos si un proyecto
+    /// legacy se llamara literalmente "Projects" en la forma flat.
     /// </summary>
     internal static DeployConfig ParseConfigLeniently(string json)
     {

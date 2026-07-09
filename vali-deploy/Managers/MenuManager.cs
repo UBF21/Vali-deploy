@@ -12,6 +12,7 @@ public static class MenuManager
 {
     private static Dictionary<string, Project> _projects = new();
     private static BarChart _barChart = new();
+    private static readonly Infrastructure.IProjectRepository _repository = CompositionRoot.CreateProjectRepository();
 
     /// <summary>
     /// Starts the main menu loop of the application, allowing users to interact with project management features.
@@ -19,7 +20,7 @@ public static class MenuManager
     /// <returns>A task representing the asynchronous operation.</returns>
     public static async Task StartAsync()
     {
-        _projects = ProjectManager.LoadOrCreateConfig();
+        _projects = _repository.Load().Projects;
         _barChart = ChartManager.CreateBarChart(_projects);
 
         bool running = true;
@@ -118,8 +119,59 @@ public static class MenuManager
     /// </summary>
     private static void UpdateProjectsAndChart()
     {
-        _projects = ProjectManager.LoadOrCreateConfig();
+        _projects = _repository.Load().Projects;
         _barChart = ChartManager.CreateBarChart(_projects);
+    }
+
+    /// <summary>
+    /// Persists the current in-memory <see cref="_projects"/> dictionary to disk via <see cref="_repository"/>,
+    /// preserving whatever <see cref="Domain.DeployConfig.Environments"/> is currently on disk (fresh load right
+    /// before saving) so that a project-only save never wipes out entorno data written elsewhere
+    /// (e.g. by <see cref="Presentation.EnvironmentMenu"/>).
+    /// </summary>
+    private static void PersistProjects()
+    {
+        var config = _repository.Load();
+        config.Projects = _projects;
+        _repository.Save(config);
+    }
+
+    /// <summary>
+    /// Adds a new project to the persisted configuration: a fresh <see cref="_repository"/> load
+    /// right before mutating and saving (never reusing a possibly-stale <see cref="_projects"/>
+    /// snapshot), so concurrent/earlier-in-session changes aren't clobbered.
+    /// </summary>
+    private static void AddProjectToConfig(string name, Project project)
+    {
+        var config = _repository.Load();
+        if (!config.Projects.TryAdd(name.Trim(), project))
+        {
+            AnsiConsole.MarkupLine($"[yellow]:warning: Project '{name}' already exists.[/]");
+            return;
+        }
+
+        _repository.Save(config);
+        AnsiConsole.MarkupLine($"[green]Project '{name}' added successfully.[/]");
+    }
+
+    /// <summary>
+    /// Removes a project from the persisted configuration: a fresh <see cref="_repository"/> load
+    /// right before mutating and saving. Called once per project when the user selects
+    /// multiple projects to remove, so each iteration must see the previous iteration's
+    /// removal already reflected on disk.
+    /// </summary>
+    private static void RemoveProjectFromConfig(string name)
+    {
+        var config = _repository.Load();
+        if (!config.Projects.ContainsKey(name.Trim()))
+        {
+            AnsiConsole.MarkupLine($"[yellow]:warning: Project '{name}' does not exist.[/]");
+            return;
+        }
+
+        config.Projects.Remove(name);
+        _repository.Save(config);
+        AnsiConsole.MarkupLine($"[green]Project '{name}' removed successfully.[/]");
     }
 
     /// <summary>
@@ -137,7 +189,7 @@ public static class MenuManager
         var subProjects = await PromptSubProjectsAsync(projectPath);
         if (subProjects == null) return;
 
-        ProjectManager.AddProject(projectName, new Project { Path = projectPath, SubProjects = subProjects });
+        AddProjectToConfig(projectName, new Project { Path = projectPath, SubProjects = subProjects });
         AnsiConsole.MarkupLine($"[green]Project '{Markup.Escape(projectName)}' added successfully![/]");
     }
 
@@ -276,7 +328,7 @@ public static class MenuManager
 
         foreach (var projectName in projectsToRemove)
         {
-            ProjectManager.RemoveProject(projectName);
+            RemoveProjectFromConfig(projectName);
             AnsiConsole.MarkupLine($"[green]Project '{Markup.Escape(projectName)}' removed successfully.[/]");
         }
     }
@@ -323,7 +375,7 @@ public static class MenuManager
                 }
             }
 
-            ProjectManager.SaveConfig(_projects);
+            PersistProjects();
             PauseForUserInput();
             break;
         }
@@ -654,7 +706,7 @@ public static class MenuManager
             else
             {
                 subProject.OmitFiles.Add(fileToAdd);
-                ProjectManager.SaveConfig(_projects);
+                PersistProjects();
                 AnsiConsole.MarkupLine($"[green]File '{Markup.Escape(fileToAdd)}' added to omit list.[/]");
                 firstFileAdded = true; // Marca que ya se agregó el primer archivo
                 await Task.Delay(1000); // Pausa de 1.5 segundos para mostrar el mensaje
@@ -693,7 +745,7 @@ public static class MenuManager
                     AnsiConsole.MarkupLine($"[green]File '{Markup.Escape(file)}' removed from omit list.[/]");
                 }
 
-                ProjectManager.SaveConfig(_projects);
+                PersistProjects();
             }
         }
 
@@ -711,7 +763,7 @@ public static class MenuManager
     {
         if (subProject == null) return;
 
-        // subProject viene de MenuManager._projects (grafo cargado por el ProjectManager legacy), que puede
+        // subProject viene de MenuManager._projects (grafo cargado en memoria vía _repository.Load()), que puede
         // estar desactualizado respecto de lo que haya en disco (p. ej. si el usuario recién usó "Edit Pipeline",
         // que persiste vía su propio ProjectRepository.Load()/Save() sobre un grafo de objetos distinto).
         // Resolvemos la instancia real desde un repository.Load() fresco para que el guard y la ejecución del
@@ -803,7 +855,7 @@ public static class MenuManager
                     {
                         dockerHubUser = AnsiConsole.Ask<string>("Enter your Docker Hub username (this will be saved):");
                         subProject.DockerHubUser = dockerHubUser;
-                        ProjectManager.SaveConfig(_projects);
+                        PersistProjects();
                     }
 
                     string dockerHubTag = $"{dockerHubUser}/{imageTag}";
@@ -1100,7 +1152,7 @@ public static class MenuManager
                         {
                             subProject.DockerBuildArgs.Add(arg);
                             AnsiConsole.MarkupLine($"[green]Build arg '{Markup.Escape(arg)}' added.[/]");
-                            ProjectManager.SaveConfig(_projects);
+                            PersistProjects();
                             firstArgAdded = true; // Marca que ya se agregó el primer argumento
                             await Task.Delay(1000); // Pausa de 1.5 segundos para mostrar el mensaje
                         }
@@ -1116,7 +1168,7 @@ public static class MenuManager
                         {
                             subProject.DockerRunArgs.Add(arg);
                             AnsiConsole.MarkupLine($"[green]Run arg '{Markup.Escape(arg)}' added.[/]");
-                            ProjectManager.SaveConfig(_projects);
+                            PersistProjects();
                             firstArgAdded = true; // Marca que ya se agregó el primer argumento
                             await Task.Delay(1500); // Pausa de 1.5 segundos para mostrar el mensaje
                         }
@@ -1172,7 +1224,7 @@ public static class MenuManager
                     AnsiConsole.MarkupLine($"[green]Build arg '{Markup.Escape(arg)}' removed.[/]");
                 }
 
-                ProjectManager.SaveConfig(_projects);
+                PersistProjects();
             }
         }
         else if (type == "Run Args")
@@ -1199,7 +1251,7 @@ public static class MenuManager
                     AnsiConsole.MarkupLine($"[green]Run arg '{Markup.Escape(arg)}' removed.[/]");
                 }
 
-                ProjectManager.SaveConfig(_projects);
+                PersistProjects();
             }
         }
 
@@ -1303,7 +1355,7 @@ public static class MenuManager
 
                 case "Toggle Zip Publish Output":
                     subProject.ZipPublishOutput = !subProject.ZipPublishOutput;
-                    ProjectManager.SaveConfig(_projects);
+                    PersistProjects();
                     AnsiConsole.MarkupLine(
                         $"[green]Zip Publish Output {(subProject.ZipPublishOutput ? "enabled" : "disabled")}.[/]");
                     await Task.Delay(1500); // Pausa breve para mostrar el mensaje
@@ -1413,7 +1465,7 @@ public static class MenuManager
             {
                 subProject.PublishArgs ??= new List<string>();
                 subProject.PublishArgs.Add(arg);
-                ProjectManager.SaveConfig(_projects);
+                PersistProjects();
                 AnsiConsole.MarkupLine($"[green]Publish arg '{Markup.Escape(arg)}' added.[/]");
                 firstArgAdded = true;
                 await Task.Delay(1500); // Pausa de 1.5 segundos
@@ -1455,7 +1507,7 @@ public static class MenuManager
                 AnsiConsole.MarkupLine($"[green]Publish arg '{Markup.Escape(arg)}' removed.[/]");
             }
 
-            ProjectManager.SaveConfig(_projects);
+            PersistProjects();
         }
 
         await Task.Delay(1500);
