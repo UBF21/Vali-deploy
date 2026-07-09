@@ -41,6 +41,7 @@ vali-deploy/
 │   │   ├── LocalCommandExecutor.cs
 │   │   ├── DockerBuildExecutor.cs
 │   │   ├── DockerPushExecutor.cs
+│   │   ├── DockerSaveExecutor.cs / DockerLoadExecutor.cs
 │   │   ├── DockerImagePruneExecutor.cs
 │   │   ├── DockerComposePullExecutor.cs / DockerComposeUpExecutor.cs / DockerComposeDownExecutor.cs
 │   │   ├── ZipPublishExecutor.cs            (lógica existente, movida)
@@ -67,8 +68,8 @@ vali-deploy/
 
 ```csharp
 enum StepType {
-    GitCheckout, LocalCommand, DockerBuild, DockerPush, DockerImagePrune,
-    DockerComposePull, DockerComposeUp, DockerComposeDown,
+    GitCheckout, LocalCommand, DockerBuild, DockerPush, DockerSave, DockerLoad,
+    DockerImagePrune, DockerComposePull, DockerComposeUp, DockerComposeDown,
     ZipPublishOutput, CopyToRemote, SshCommand, RawCommand
 }
 
@@ -154,6 +155,14 @@ Corrige la falencia detectada en la auditoría (`RunCommandsAsync` no verificaba
 - **Publish/Zip**: `GitCheckout → LocalCommand(clean) → LocalCommand(dotnet publish) → ZipPublishOutput → CopyToRemote(zip) → SshCommand(extract) → SshCommand(restart servicio/IIS pool)`
 
 Ambas son editables en `PipelineEditorMenu` — agregar, quitar, reordenar pasos, o insertar `RawCommand` en cualquier punto. Como la rama vive en `DeployEnvironment.DefaultBranch` y el pipeline vive en `SubProject.PipelinesByEnvironment[env]`, un mismo proyecto desplegado a QA (rama `develop`) y PROD (rama `main`) tiene dos pipelines independientes sin duplicar la definición del servidor remoto — `DeployEnvironment` se define una sola vez y la reutilizan todos los proyectos que apuntan a QA o PROD.
+
+### Variante sin registry: `docker save`/`docker load`
+
+No es un sistema aparte — es una variante de la plantilla **Docker Compose** para servidores remotos sin acceso a un registry (Docker Hub u otro privado). Se arma reemplazando `DockerPush` + `DockerComposePull` por `DockerSave → CopyToRemote(tar) → DockerLoad`, transfiriendo la imagen directo por SFTP en vez de publicarla:
+
+- **Docker Compose (sin registry)**: `GitCheckout → DockerBuild → DockerSave → CopyToRemote(compose.yml) → CopyToRemote(image.tar) → DockerLoad → DockerComposeUp → DockerImagePrune`
+
+`DockerSaveExecutor` corre `docker save -o <tar> <image:tag>` localmente; `DockerLoadExecutor` corre `docker load -i <tar>` en el remoto vía SSH (no confundir con `CopyToRemoteExecutor`, que solo transfiere el archivo). `PipelineTemplateFactory` no genera esta variante por defecto — el usuario la arma manualmente en `PipelineEditorMenu` a partir de la plantilla Docker Compose cuando el `RemoteServer` de su `DeployEnvironment` no tiene salida a un registry.
 
 ## Testing
 
