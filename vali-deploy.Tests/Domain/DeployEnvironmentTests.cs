@@ -33,4 +33,20 @@ public class DeployEnvironmentTests
         Assert.NotNull(prod.Server);
         Assert.Equal(RemoteOs.Linux, prod.Server!.Os);
     }
+
+    [Fact]
+    public void RemoteDeployPath_is_null_by_default_allowing_convention_based_fallback()
+    {
+        var env = new DeployEnvironment { Name = "QA" };
+
+        Assert.Null(env.RemoteDeployPath);
+    }
+
+    [Fact]
+    public void RemoteDeployPath_can_be_set_to_override_the_default_convention()
+    {
+        var env = new DeployEnvironment { Name = "PROD", RemoteDeployPath = "/srv/apps/legacy-name" };
+
+        Assert.Equal("/srv/apps/legacy-name", env.RemoteDeployPath);
+    }
 }
