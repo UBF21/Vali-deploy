@@ -18,6 +18,7 @@ Objetivo: extender el CLI para desplegar a servidores remotos (Windows y Linux) 
 - **Deploy con Docker**: se prioriza `docker compose` en el remoto sobre `docker run` con args reconstruidos — el pipeline publica una imagen a un registry (Docker Hub u otro) y el servidor remoto hace `docker compose pull && docker compose up -d` sobre un `compose.yml` copiado por SSH. Incluye limpieza de imágenes viejas post-deploy (`DockerImagePrune`, acotado por defecto a las imágenes del propio proyecto).
 - **Deploy clásico (no-Docker)**: se mantiene y formaliza el flujo `dotnet publish → zip → subir → extraer → reiniciar servicio/IIS pool` que hoy existe parcialmente (`ZipPublishOutput`).
 - **Plantillas**: al crear el pipeline de un `SubProject` se ofrecen dos puntos de partida (Docker Compose / Publish+Zip) generados por `PipelineTemplateFactory`; el usuario los edita libremente después (agregar, quitar, reordenar pasos, insertar `RawCommand`).
+- **`GitCheckout` y sincronización de cambios**: es el mismo `StepType` en ambas plantillas (Docker Compose y Publish/Zip necesitan definir sobre qué rama local se buildea/empaqueta). El flag de si sincroniza con el remoto antes de continuar (`Args["SyncBeforeBuild"]`, bool, default `true`) se configura **una sola vez al armar/editar el paso** en `PipelineEditorMenu` — no se pregunta en cada ejecución del pipeline — y aplica igual sin importar el tipo de plantilla, porque es una propiedad del paso `GitCheckout`, no del pipeline. Copy profesional en la UI del editor: *"Sincronizar la rama con el remoto antes de continuar"* (evitar wording informal tipo "jalar cambios").
 - **Credenciales**: solo referencias a variables de entorno en el JSON de config (`PassphraseEnvVar`, `DockerRegistryTokenEnvVar`) — nunca el valor. Resolución falla explícito si la env var no existe.
 - **Multi-entorno**: `DeployEnvironment` (DEV/QA/PROD) es una entidad de primer nivel, reutilizable entre proyectos, con su propio `RemoteServer` y `DefaultBranch`. Cada `SubProject` tiene un pipeline por entorno (`PipelinesByEnvironment`) — la navegación del CLI permite entrar por entorno ("ver todo lo que corre en QA") o por proyecto ("ver a qué entornos despliega esta API"). Se llama `DeployEnvironment` y no `Environment` para no colisionar con `System.Environment` (usado por `EnvVarSecretResolver`).
 - **Deuda técnica**: se resuelve completa junto con el feature (exit code check, credenciales, logging, y el refactor de `MenuManager.cs`), no se pospone.
@@ -82,6 +83,10 @@ class DeployStep {
     bool ContinueOnFailure = false;    // default: un fallo corta el pipeline
     int RetryCount = 0;                // reintentos con backoff (1s, 3s, 5s) — pensado para pasos de red
 }
+
+// GitCheckoutExecutor lee de Args (definido una vez en PipelineEditorMenu, no por prompt en cada corrida):
+//   Args["Branch"]           = rama a checkear (default: DeployEnvironment.DefaultBranch)
+//   Args["SyncBeforeBuild"]  = "true"/"false" — si corre `git pull` sobre esa rama antes de continuar (default: "true")
 
 class RemoteServer {
     string Host;
