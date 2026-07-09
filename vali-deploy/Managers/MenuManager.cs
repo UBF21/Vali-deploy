@@ -711,6 +711,12 @@ public static class MenuManager
     {
         if (subProject == null) return;
 
+        if (subProject.PipelinesByEnvironment.Count > 0)
+        {
+            await ExecuteSubProjectPipelineAsync(project, subProject, projectName);
+            return;
+        }
+
         string subProjectPathFull = Path.Combine(project.Path, subProject.Path);
         string imageTag = $"{projectName.ToLower()}-{subProject.Name.ToLower()}:latest";
 
@@ -811,6 +817,50 @@ public static class MenuManager
             case "[chartreuse3_1]Back to Subprojects[/]":
                 return;
         }
+    }
+
+    /// <summary>
+    /// Runs the deployment pipeline assigned to a subproject for a user-selected environment, via <see cref="Presentation.PipelineExecutionView"/>.
+    /// </summary>
+    /// <param name="project">The parent project of the subproject.</param>
+    /// <param name="subProject">The subproject whose pipeline will be executed.</param>
+    /// <param name="projectName">The name of the parent project.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private static async Task ExecuteSubProjectPipelineAsync(Project project, SubProject subProject, string projectName)
+    {
+        var repository = CompositionRoot.CreateProjectRepository();
+        var config = repository.Load();
+
+        var environmentName = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("Elegí el entorno a desplegar:")
+                .AddChoices(subProject.PipelinesByEnvironment.Keys));
+
+        var environment = config.Environments.First(e => e.Name == environmentName);
+        var steps = subProject.PipelinesByEnvironment[environmentName];
+        var subProjectPathFull = Path.Combine(project.Path, subProject.Path);
+
+        var context = new Application.StepExecutionContext
+        {
+            ProjectName = projectName,
+            SubProjectName = subProject.Name,
+            ProjectPath = subProjectPathFull,
+            Environment = environment
+        };
+
+        var pipelineRunner = CompositionRoot.CreatePipelineRunner();
+        var logger = CompositionRoot.CreatePipelineLogger();
+        logger.StartRun(projectName, subProject.Name);
+
+        var view = new Presentation.PipelineExecutionView();
+        var result = await view.RunAsync(pipelineRunner, steps, context);
+
+        foreach (var stepResult in result.Steps)
+        {
+            logger.WriteStep(stepResult);
+        }
+
+        PauseForUserInput(result.Success ? "Pipeline completado con éxito." : "Pipeline falló, revisá el detalle arriba.");
     }
 
     /// <summary>
