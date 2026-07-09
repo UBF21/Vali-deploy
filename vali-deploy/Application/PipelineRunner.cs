@@ -46,7 +46,15 @@ public class PipelineRunner : IPipelineRunner
 
         while (true)
         {
-            result = await executor.ExecuteAsync(step, context);
+            try
+            {
+                result = await executor.ExecuteAsync(step, context);
+            }
+            catch (Exception ex)
+            {
+                result = new StepResult { Step = step, Success = false, ExitCode = -1, Error = ex.Message };
+            }
+
             result.AttemptNumber = attempt;
 
             if (result.Success || attempt > step.RetryCount)

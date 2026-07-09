@@ -127,4 +127,54 @@ public class PipelineRunnerTests
         Assert.True(result.Success);
         Assert.Equal(2, callCount);
     }
+
+    [Fact]
+    public async Task Step_retries_past_thrown_exception_and_eventually_succeeds()
+    {
+        var callCount = 0;
+        var flaky = new Mock<IStepExecutor>();
+        flaky.Setup(e => e.Handles).Returns(StepType.LocalCommand);
+        flaky.Setup(e => e.ExecuteAsync(It.IsAny<DeployStep>(), It.IsAny<StepExecutionContext>()))
+            .Returns((DeployStep s, StepExecutionContext _) =>
+            {
+                callCount++;
+                if (callCount < 2)
+                {
+                    throw new InvalidOperationException("Conexión SSH caída");
+                }
+                return Task.FromResult(new StepResult { Step = s, Success = true, ExitCode = 0 });
+            });
+
+        var runner = new PipelineRunner(new[] { flaky.Object }, retryDelayProvider: _ => TimeSpan.Zero);
+        var steps = new List<DeployStep> { new() { Type = StepType.LocalCommand, Name = "ssh-flaky", RetryCount = 3 } };
+
+        var result = await runner.RunAsync(steps, Context(), progress: null);
+
+        Assert.True(result.Success);
+        Assert.Equal(2, callCount);
+    }
+
+    [Fact]
+    public async Task Step_that_always_throws_exhausts_RetryCount_and_produces_failed_PipelineResult()
+    {
+        var callCount = 0;
+        var alwaysThrows = new Mock<IStepExecutor>();
+        alwaysThrows.Setup(e => e.Handles).Returns(StepType.LocalCommand);
+        alwaysThrows.Setup(e => e.ExecuteAsync(It.IsAny<DeployStep>(), It.IsAny<StepExecutionContext>()))
+            .Returns((DeployStep _, StepExecutionContext _) =>
+            {
+                callCount++;
+                throw new InvalidOperationException("Timeout de red");
+            });
+
+        var runner = new PipelineRunner(new[] { alwaysThrows.Object }, retryDelayProvider: _ => TimeSpan.Zero);
+        var steps = new List<DeployStep> { new() { Type = StepType.LocalCommand, Name = "always-throws", RetryCount = 2 } };
+
+        var result = await runner.RunAsync(steps, Context(), progress: null);
+
+        Assert.False(result.Success);
+        Assert.Equal(3, callCount); // intento inicial + 2 reintentos
+        Assert.Single(result.Steps);
+        Assert.Equal("Timeout de red", result.Steps[0].Error);
+    }
 }
