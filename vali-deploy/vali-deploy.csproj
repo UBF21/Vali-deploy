@@ -39,4 +39,8 @@
                 </None>
             </ItemGroup>
 
+            <ItemGroup>
+                <InternalsVisibleTo Include="vali-deploy.Tests" />
+            </ItemGroup>
+
         </Project>
