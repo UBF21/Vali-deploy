@@ -711,9 +711,18 @@ public static class MenuManager
     {
         if (subProject == null) return;
 
-        if (subProject.PipelinesByEnvironment.Count > 0)
+        // subProject viene de MenuManager._projects (grafo cargado por el ProjectManager legacy), que puede
+        // estar desactualizado respecto de lo que haya en disco (p. ej. si el usuario recién usó "Edit Pipeline",
+        // que persiste vía su propio ProjectRepository.Load()/Save() sobre un grafo de objetos distinto).
+        // Resolvemos la instancia real desde un repository.Load() fresco para que el guard y la ejecución del
+        // pipeline reflejen el estado actual en disco, no la copia stale en memoria.
+        var repository = CompositionRoot.CreateProjectRepository();
+        var config = repository.Load();
+        var configSubProject = config.Projects[projectName].SubProjects.First(s => s.Name == subProject.Name);
+
+        if (configSubProject.PipelinesByEnvironment.Count > 0)
         {
-            await ExecuteSubProjectPipelineAsync(project, subProject, projectName);
+            await ExecuteSubProjectPipelineAsync(project, configSubProject, projectName, config);
             return;
         }
 
@@ -823,14 +832,14 @@ public static class MenuManager
     /// Runs the deployment pipeline assigned to a subproject for a user-selected environment, via <see cref="Presentation.PipelineExecutionView"/>.
     /// </summary>
     /// <param name="project">The parent project of the subproject.</param>
-    /// <param name="subProject">The subproject whose pipeline will be executed.</param>
+    /// <param name="subProject">The subproject whose pipeline will be executed — must already be resolved from a
+    /// freshly-loaded <see cref="Domain.DeployConfig"/> graph (see the caller in <see cref="ExecuteCommandSubProject"/>),
+    /// not the potentially-stale instance living in <c>_projects</c>.</param>
     /// <param name="projectName">The name of the parent project.</param>
+    /// <param name="config">The <see cref="Domain.DeployConfig"/> already loaded by the caller, reused here to avoid a duplicate <c>repository.Load()</c>.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    private static async Task ExecuteSubProjectPipelineAsync(Project project, SubProject subProject, string projectName)
+    private static async Task ExecuteSubProjectPipelineAsync(Project project, SubProject subProject, string projectName, Domain.DeployConfig config)
     {
-        var repository = CompositionRoot.CreateProjectRepository();
-        var config = repository.Load();
-
         var environmentName = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("Elegí el entorno a desplegar:")
