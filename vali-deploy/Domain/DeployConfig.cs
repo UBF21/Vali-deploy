@@ -1,5 +1,3 @@
-using vali_deploy.Models;
-
 namespace vali_deploy.Domain;
 
 public class DeployConfig

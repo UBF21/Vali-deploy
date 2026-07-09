@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using System.IO.Compression;
 using Spectre.Console;
-using vali_deploy.Models;
+using vali_deploy.Domain;
 
 namespace vali_deploy.Managers;
 

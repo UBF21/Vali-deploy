@@ -1,5 +1,4 @@
 using vali_deploy.Domain;
-using vali_deploy.Models;
 
 namespace vali_deploy.Tests.Models;
 

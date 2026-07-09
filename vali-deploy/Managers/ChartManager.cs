@@ -1,5 +1,5 @@
 ﻿using Spectre.Console;
-using vali_deploy.Models;
+using vali_deploy.Domain;
 using vali_deploy.Utils;
 
 namespace vali_deploy.Managers;

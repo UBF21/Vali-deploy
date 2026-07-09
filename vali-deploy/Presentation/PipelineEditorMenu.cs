@@ -2,7 +2,6 @@ using Spectre.Console;
 using vali_deploy.Application;
 using vali_deploy.Domain;
 using vali_deploy.Infrastructure;
-using vali_deploy.Models;
 
 namespace vali_deploy.Presentation;
 

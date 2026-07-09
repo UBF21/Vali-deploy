@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using System.Text.Json;
 using Spectre.Console;
-using vali_deploy.Models;
+using vali_deploy.Domain;
 
 namespace vali_deploy.Managers
 {
