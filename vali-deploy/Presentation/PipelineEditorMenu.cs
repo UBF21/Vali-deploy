@@ -22,21 +22,26 @@ public static class PipelineEditorMenu
             new SelectionPrompt<string>().Title("Elegí el entorno:").AddChoices(config.Environments.Select(e => e.Name)));
         var environment = config.Environments.First(e => e.Name == environmentName);
 
-        if (!subProject.PipelinesByEnvironment.ContainsKey(environmentName))
+        // subProject es el parámetro provisto por el caller; config.Projects[...] viene de un repository.Load()
+        // recién hecho, así que es un grafo de objetos DISTINTO. Resolvemos la instancia que realmente
+        // pertenece al grafo de config y operamos siempre sobre ella, para que cualquier mutación posterior
+        // (alta de template o edición de steps) sea visible cuando se llame a repository.Save(config).
+        var configSubProject = config.Projects[projectName].SubProjects.First(s => s.Name == subProject.Name);
+
+        if (!configSubProject.PipelinesByEnvironment.ContainsKey(environmentName))
         {
             var template = AnsiConsole.Prompt(
                 new SelectionPrompt<string>().Title("Plantilla inicial:").AddChoices("Docker Compose", "Publish/Zip"));
 
             var factory = new PipelineTemplateFactory();
-            subProject.PipelinesByEnvironment[environmentName] = template == "Docker Compose"
-                ? factory.CreateDockerComposeTemplate(projectName, subProject.Name, environment)
-                : factory.CreatePublishZipTemplate(projectName, subProject.Name);
+            configSubProject.PipelinesByEnvironment[environmentName] = template == "Docker Compose"
+                ? factory.CreateDockerComposeTemplate(projectName, configSubProject.Name, environment)
+                : factory.CreatePublishZipTemplate(projectName, configSubProject.Name);
 
-            config.Projects[projectName].SubProjects.First(s => s.Name == subProject.Name).PipelinesByEnvironment = subProject.PipelinesByEnvironment;
             repository.Save(config);
         }
 
-        await EditStepsAsync(repository, config, subProject, environmentName);
+        await EditStepsAsync(repository, config, configSubProject, environmentName);
     }
 
     private static async Task EditStepsAsync(IProjectRepository repository, Domain.DeployConfig config, SubProject subProject, string environmentName)
