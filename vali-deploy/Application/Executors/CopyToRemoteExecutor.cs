@@ -19,7 +19,7 @@ public class CopyToRemoteExecutor : IStepExecutor
         if (context.Environment.Server == null)
         {
             stopwatch.Stop();
-            return RemoteStepResultFactory.NoServer(step, context, stopwatch.Elapsed);
+            return StepResultFactory.NoServer(step, context, stopwatch.Elapsed);
         }
 
         if (!step.Args.TryGetValue("LocalPath", out var localPath))

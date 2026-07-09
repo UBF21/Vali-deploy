@@ -19,7 +19,7 @@ public class SshCommandExecutor : IStepExecutor
         if (context.Environment.Server == null)
         {
             stopwatch.Stop();
-            return RemoteStepResultFactory.NoServer(step, context, stopwatch.Elapsed);
+            return StepResultFactory.NoServer(step, context, stopwatch.Elapsed);
         }
 
         if (!step.Args.TryGetValue("Command", out var command))
@@ -30,10 +30,6 @@ public class SshCommandExecutor : IStepExecutor
         var run = await _sshClientFactory.RunCommandAsync(context.Environment.Server, command);
         stopwatch.Stop();
 
-        return new StepResult
-        {
-            Step = step, Success = run.ExitCode == 0, ExitCode = run.ExitCode,
-            Output = run.StdOut, Error = run.StdErr, Duration = stopwatch.Elapsed
-        };
+        return StepResultFactory.FromProcessResult(step, run, stopwatch.Elapsed);
     }
 }
