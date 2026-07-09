@@ -714,7 +714,7 @@ public static class MenuManager
         string subProjectPathFull = Path.Combine(project.Path, subProject.Path);
         string imageTag = $"{projectName.ToLower()}-{subProject.Name.ToLower()}:latest";
 
-        var choices = new List<string> { "Generate Microsoft publish", "[chartreuse3_1]Back to Subprojects[/]" };
+        var choices = new List<string> { "Generate Microsoft publish", "Edit Pipeline", "[chartreuse3_1]Back to Subprojects[/]" };
         if (!string.IsNullOrEmpty(subProject.DockerfilePath))
         {
             choices.Insert(1, "Docker Build");
@@ -735,6 +735,10 @@ public static class MenuManager
                     $"[green]Running normal publish for subproject '{Markup.Escape(subProject.Name)}' in project '{Markup.Escape(projectName)}'...[/]");
                 await CommandExecutor.RunCommandsAsync(projectName, subProject.Name, subProjectPathFull, subProject);
                 PauseForUserInput();
+                break;
+
+            case "Edit Pipeline":
+                await Presentation.PipelineEditorMenu.StartAsync(CompositionRoot.CreateProjectRepository(), projectName, subProject);
                 break;
 
             case "Docker Build":
