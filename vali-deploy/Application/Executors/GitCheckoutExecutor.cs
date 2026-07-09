@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using vali_deploy.Domain;
 using vali_deploy.Infrastructure;
 
@@ -6,6 +7,8 @@ namespace vali_deploy.Application.Executors;
 
 public class GitCheckoutExecutor : IStepExecutor
 {
+    private static readonly Regex ValidBranchName = new(@"^[A-Za-z0-9._/-]+$", RegexOptions.Compiled);
+
     private readonly IProcessRunner _processRunner;
 
     public GitCheckoutExecutor(IProcessRunner processRunner) => _processRunner = processRunner;
@@ -22,6 +25,11 @@ public class GitCheckoutExecutor : IStepExecutor
             return MissingBranchResult(step, stopwatch.Elapsed);
         }
 
+        if (!ValidBranchName.IsMatch(branch))
+        {
+            return InvalidBranchResult(step, branch, stopwatch.Elapsed);
+        }
+
         var checkoutResult = await _processRunner.RunAsync($"git checkout {branch}", context.ProjectPath);
 
         if (checkoutResult.ExitCode != 0)
@@ -33,11 +41,7 @@ public class GitCheckoutExecutor : IStepExecutor
         if (!ShouldSyncBeforeBuild(step))
         {
             stopwatch.Stop();
-            return new StepResult
-            {
-                Step = step, Success = true, ExitCode = 0,
-                Output = checkoutResult.StdOut, Duration = stopwatch.Elapsed
-            };
+            return BuildResult(step, checkoutResult, checkoutResult.StdOut, stopwatch.Elapsed);
         }
 
         var pullResult = await _processRunner.RunAsync("git pull", context.ProjectPath);
@@ -58,6 +62,15 @@ public class GitCheckoutExecutor : IStepExecutor
         Success = false,
         ExitCode = -1,
         Error = "No se definió rama para GitCheckout: falta Args[\"Branch\"] y el DeployEnvironment no tiene DefaultBranch.",
+        Duration = duration
+    };
+
+    private static StepResult InvalidBranchResult(DeployStep step, string branch, TimeSpan duration) => new()
+    {
+        Step = step,
+        Success = false,
+        ExitCode = -1,
+        Error = $"La rama '{branch}' no es un nombre de rama válido para GitCheckout: solo se permiten letras, dígitos, '.', '_', '/' y '-'.",
         Duration = duration
     };
 

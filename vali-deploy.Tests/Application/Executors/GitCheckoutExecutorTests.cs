@@ -87,4 +87,44 @@ public class GitCheckoutExecutorTests
         Assert.False(result.Success);
         Assert.Contains("rama", result.Error, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public async Task Rejects_branch_with_shell_metacharacters_without_calling_ProcessRunner()
+    {
+        var processRunner = new Mock<IProcessRunner>();
+        var executor = new GitCheckoutExecutor(processRunner.Object);
+        var step = new DeployStep
+        {
+            Type = StepType.GitCheckout, Name = "checkout",
+            Args = { ["Branch"] = "main; rm -rf /" }
+        };
+
+        var result = await executor.ExecuteAsync(step, Context());
+
+        Assert.False(result.Success);
+        Assert.Contains("rama", result.Error, StringComparison.OrdinalIgnoreCase);
+        processRunner.Verify(p => p.RunAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Accepts_valid_branch_name_with_typical_git_ref_characters()
+    {
+        var processRunner = new Mock<IProcessRunner>();
+        processRunner.Setup(p => p.RunAsync("git checkout feature/my-branch_v2.1", "/tmp/proj", null))
+            .ReturnsAsync(new ProcessRunResult(0, "", ""));
+        processRunner.Setup(p => p.RunAsync("git pull", "/tmp/proj", null))
+            .ReturnsAsync(new ProcessRunResult(0, "", ""));
+
+        var executor = new GitCheckoutExecutor(processRunner.Object);
+        var step = new DeployStep
+        {
+            Type = StepType.GitCheckout, Name = "checkout",
+            Args = { ["Branch"] = "feature/my-branch_v2.1" }
+        };
+
+        var result = await executor.ExecuteAsync(step, Context());
+
+        Assert.True(result.Success);
+        processRunner.Verify(p => p.RunAsync("git checkout feature/my-branch_v2.1", "/tmp/proj", null), Times.Once);
+    }
 }
