@@ -157,7 +157,7 @@ Corrige la falencia detectada en la auditoría (`RunCommandsAsync` no verificaba
 `PipelineTemplateFactory` genera el punto de partida al asignar un `SubProject` a un `DeployEnvironment` (`PipelinesByEnvironment[env.Name] = template`). Si el proyecto es un repo git, ambas plantillas arrancan con `GitCheckout` usando `DeployEnvironment.DefaultBranch`:
 
 - **Docker Compose**: `GitCheckout → DockerBuild → DockerPush → CopyToRemote(compose.yml) → DockerComposePull → DockerComposeUp → DockerImagePrune`
-- **Publish/Zip**: `GitCheckout → LocalCommand(clean) → LocalCommand(dotnet publish) → ZipPublishOutput → CopyToRemote(zip) → SshCommand(extract) → SshCommand(restart servicio/IIS pool)`
+- **Publish/Zip**: `GitCheckout → ZipPublishOutput → CopyToRemote(zip) → SshCommand(extract) → SshCommand(restart servicio/IIS pool)` — `ZipPublishOutput` hace clean→build→publish→zip internamente (Task 16 del plan de implementación), no requiere pasos `LocalCommand` previos.
 
 Ambas son editables en `PipelineEditorMenu` — agregar, quitar, reordenar pasos, o insertar `RawCommand` en cualquier punto. Como la rama vive en `DeployEnvironment.DefaultBranch` y el pipeline vive en `SubProject.PipelinesByEnvironment[env]`, un mismo proyecto desplegado a QA (rama `develop`) y PROD (rama `main`) tiene dos pipelines independientes sin duplicar la definición del servidor remoto — `DeployEnvironment` se define una sola vez y la reutilizan todos los proyectos que apuntan a QA o PROD.
 
