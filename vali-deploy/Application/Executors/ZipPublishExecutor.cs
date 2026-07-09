@@ -45,7 +45,7 @@ public class ZipPublishExecutor : IStepExecutor
     {
         var publishArgs = step.Args.GetValueOrDefault("PublishArgs", "");
         var cleanCommand = OperatingSystem.IsWindows()
-            ? "rmdir /s /q bin && rmdir /s /q obj"
+            ? "(if exist bin rmdir /s /q bin) & (if exist obj rmdir /s /q obj)"
             : "rm -rf bin; rm -rf obj";
 
         return new[]
