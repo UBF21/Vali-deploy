@@ -56,16 +56,28 @@ public static class PipelineEditorMenu
             }
             AnsiConsole.Write(table);
 
+            var choices = new List<string> { "Insert RawCommand", "Remove Step", "Back" };
+            if (steps.Count > 0)
+            {
+                choices.Insert(1, "Edit Step Args");
+            }
+
             var action = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
                     .Title($"Pipeline de {subProject.Name} en {environmentName}:")
-                    .AddChoices("Insert RawCommand", "Remove Step", "Back"));
+                    .AddChoices(choices));
 
             switch (action)
             {
                 case "Insert RawCommand":
                     var command = AnsiConsole.Ask<string>("Comando a insertar:");
                     steps.Add(new DeployStep { Type = StepType.RawCommand, Name = command, Args = { ["Command"] = command } });
+                    repository.Save(config);
+                    break;
+                case "Edit Step Args":
+                    var toEdit = AnsiConsole.Prompt(
+                        new SelectionPrompt<DeployStep>().Title("Editar Args de cuál paso?").UseConverter(s => s.Name).AddChoices(steps));
+                    EditStepArgs(toEdit);
                     repository.Save(config);
                     break;
                 case "Remove Step":
@@ -79,6 +91,39 @@ public static class PipelineEditorMenu
             }
 
             await Task.CompletedTask;
+        }
+    }
+
+    private static void EditStepArgs(DeployStep step)
+    {
+        if (step.Args.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]Este step no tiene Args definidos.[/]");
+            return;
+        }
+
+        while (true)
+        {
+            AnsiConsole.Clear();
+            var table = new Table().AddColumns("Key", "Value");
+            foreach (var kv in step.Args)
+            {
+                table.AddRow(kv.Key, string.IsNullOrEmpty(kv.Value) ? "[grey](vacío)[/]" : kv.Value.EscapeMarkup());
+            }
+            AnsiConsole.Write(table);
+
+            var key = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title($"Editar Args de '{step.Name}' — elegí una key (o 'Volver'):")
+                    .AddChoices(step.Args.Keys.Append("Volver")));
+
+            if (key == "Volver")
+            {
+                return;
+            }
+
+            var newValue = AnsiConsole.Ask<string>($"Nuevo valor para '{key}':", step.Args[key]);
+            step.Args[key] = newValue;
         }
     }
 }

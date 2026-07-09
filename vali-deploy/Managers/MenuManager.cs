@@ -899,6 +899,14 @@ public static class MenuManager
 
         var environment = config.Environments.First(e => e.Name == environmentName);
         var steps = subProject.PipelinesByEnvironment[environmentName];
+
+        if (steps.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]El pipeline de este entorno no tiene steps. Andá a 'Edit Pipeline' para agregar alguno.[/]");
+            PauseForUserInput();
+            return;
+        }
+
         var subProjectPathFull = Path.Combine(project.Path, subProject.Path);
 
         var context = new Application.StepExecutionContext
