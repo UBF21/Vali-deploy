@@ -87,9 +87,10 @@ public class ZipPublishExecutorTests
 
             if (OperatingSystem.IsWindows())
             {
-                // rmdir encadenado con && falla con exit code != 0 cuando bin/obj no existen todavía
-                // (checkout fresco): el comando de limpieza debe usar "if exist" + "&" simple, no "&&".
-                Assert.DoesNotContain("&&", callOrder[0]);
+                // rmdir encadenado con && (o incluso con & simple) puede fallar o enmascarar fallos.
+                // El paso de limpieza debe mandar "bin" y "obj" como comandos independientes, sin
+                // ningún operador de encadenamiento de shell.
+                Assert.DoesNotContain(callOrder, c => c.Contains('&'));
             }
         }
         finally
@@ -122,7 +123,7 @@ public class ZipPublishExecutorTests
     }
 
     [Fact]
-    public async Task Windows_conditional_rmdir_succeeds_when_bin_and_obj_are_missing()
+    public async Task Windows_split_clean_commands_succeed_independently_when_bin_and_obj_are_missing()
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -134,13 +135,128 @@ public class ZipPublishExecutorTests
         {
             var runner = new ProcessRunner();
 
-            var result = await runner.RunAsync(
-                "(if exist bin rmdir /s /q bin) & (if exist obj rmdir /s /q obj)", tempDir);
+            var binResult = await runner.RunAsync("if exist bin rmdir /s /q bin", tempDir);
+            var objResult = await runner.RunAsync("if exist obj rmdir /s /q obj", tempDir);
 
-            Assert.Equal(0, result.ExitCode);
+            Assert.Equal(0, binResult.ExitCode);
+            Assert.Equal(0, objResult.ExitCode);
         }
         finally
         {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Windows_clean_step_sends_bin_and_obj_removal_as_independent_commands()
+    {
+        var tempDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            var processRunner = new Mock<IProcessRunner>();
+            var callOrder = new List<string>();
+
+            processRunner
+                .Setup(p => p.RunAsync(It.IsAny<string>(), tempDir, null))
+                .Callback<string, string, IDictionary<string, string>?>((cmd, _, _) => callOrder.Add(cmd))
+                .ReturnsAsync(new ProcessRunResult(0, "", ""));
+
+            var executor = new ZipPublishExecutor(processRunner.Object);
+            var step = new DeployStep { Type = StepType.ZipPublishOutput, Name = "publish" };
+
+            await executor.ExecuteAsync(step, Context(tempDir));
+
+            if (OperatingSystem.IsWindows())
+            {
+                Assert.Equal("if exist bin rmdir /s /q bin", callOrder[0]);
+                Assert.Equal("if exist obj rmdir /s /q obj", callOrder[1]);
+            }
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Stops_before_dotnet_clean_when_bin_cleanup_fails_even_though_obj_cleanup_would_succeed()
+    {
+        var tempDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            var processRunner = new Mock<IProcessRunner>();
+            var callOrder = new List<string>();
+
+            processRunner
+                .Setup(p => p.RunAsync(It.IsAny<string>(), tempDir, null))
+                .Callback<string, string, IDictionary<string, string>?>((cmd, _, _) => callOrder.Add(cmd))
+                .ReturnsAsync((string cmd, string _, IDictionary<string, string>? _) =>
+                    cmd.Contains("bin")
+                        ? new ProcessRunResult(5, "", "Acceso denegado: archivo en uso")
+                        : new ProcessRunResult(0, "", ""));
+
+            var executor = new ZipPublishExecutor(processRunner.Object);
+            var step = new DeployStep { Type = StepType.ZipPublishOutput, Name = "publish" };
+
+            var result = await executor.ExecuteAsync(step, Context(tempDir));
+
+            Assert.False(result.Success);
+            Assert.Equal(5, result.ExitCode);
+            Assert.DoesNotContain(callOrder, c => c.Contains("dotnet clean"));
+
+            if (OperatingSystem.IsWindows())
+            {
+                // El fallo de "bin" no debe quedar enmascarado por el éxito posterior de "obj": al ser
+                // comandos independientes evaluados uno por uno, "obj" nunca llega a ejecutarse.
+                Assert.DoesNotContain(callOrder, c => c == "if exist obj rmdir /s /q obj");
+            }
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Windows_rmdir_exit_code_does_not_reflect_locked_file_failures_even_when_unchained()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var tempDir = Directory.CreateTempSubdirectory().FullName;
+        var binDir = Path.Combine(tempDir, "bin");
+        Directory.CreateDirectory(binDir);
+        var lockedFilePath = Path.Combine(binDir, "locked.dll");
+        File.WriteAllText(lockedFilePath, "locked");
+
+        using var lockedFileStream = new FileStream(lockedFilePath, FileMode.Open, FileAccess.Read, FileShare.None);
+
+        try
+        {
+            var runner = new ProcessRunner();
+
+            var binResult = await runner.RunAsync("if exist bin rmdir /s /q bin", tempDir);
+
+            // Hallazgo empírico en este entorno (Windows 11 / cmd.exe): "rmdir /s /q" NO pone un exit code
+            // distinto de 0 cuando falla por un archivo bloqueado dentro del directorio -esto ocurre igual
+            // como comando aislado, sin ningún "&"/"&&" de por medio-. Separar "bin" y "obj" en comandos
+            // independientes (fix de esta ronda) elimina el enmascaramiento a nivel de shell, pero NO cierra
+            // este caso puntual: el propio "rmdir" no reporta la falla via exit code. Cerrarlo requeriría que
+            // ZipPublishExecutor verifique la post-condición (Directory.Exists) en vez de confiar solo en
+            // ExitCode — eso queda fuera de esta ronda, documentado aquí para no perderlo.
+            Assert.Equal(0, binResult.ExitCode);
+            Assert.True(Directory.Exists(binDir),
+                "bin sigue en disco pese a ExitCode=0 (gap conocido de rmdir, no cerrado por el fix de esta ronda).");
+        }
+        finally
+        {
+            lockedFileStream.Dispose();
+            if (Directory.Exists(binDir))
+            {
+                Directory.Delete(binDir, recursive: true);
+            }
             Directory.Delete(tempDir, recursive: true);
         }
     }
