@@ -7,7 +7,7 @@ namespace vali_deploy.Application.Executors;
 
 public class GitCheckoutExecutor : IStepExecutor
 {
-    private static readonly Regex ValidBranchName = new(@"^[A-Za-z0-9._/-]+$", RegexOptions.Compiled);
+    private static readonly Regex ValidBranchName = new(@"\A[A-Za-z0-9][A-Za-z0-9._/-]*\z", RegexOptions.Compiled);
 
     private readonly IProcessRunner _processRunner;
 

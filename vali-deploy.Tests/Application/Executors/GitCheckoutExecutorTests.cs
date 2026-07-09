@@ -107,6 +107,44 @@ public class GitCheckoutExecutorTests
     }
 
     [Fact]
+    public async Task Rejects_branch_with_leading_dash_without_calling_ProcessRunner()
+    {
+        var processRunner = new Mock<IProcessRunner>();
+        var executor = new GitCheckoutExecutor(processRunner.Object);
+        var step = new DeployStep
+        {
+            Type = StepType.GitCheckout, Name = "checkout",
+            Args = { ["Branch"] = "--force" }
+        };
+
+        var result = await executor.ExecuteAsync(step, Context());
+
+        Assert.False(result.Success);
+        Assert.Contains("rama", result.Error, StringComparison.OrdinalIgnoreCase);
+        processRunner.Verify(p => p.RunAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Captures_checkout_stderr_when_SyncBeforeBuild_is_false()
+    {
+        var processRunner = new Mock<IProcessRunner>();
+        processRunner.Setup(p => p.RunAsync("git checkout main", "/tmp/proj", null))
+            .ReturnsAsync(new ProcessRunResult(0, "", "warning: some message"));
+
+        var executor = new GitCheckoutExecutor(processRunner.Object);
+        var step = new DeployStep
+        {
+            Type = StepType.GitCheckout, Name = "checkout",
+            Args = { ["SyncBeforeBuild"] = "false" }
+        };
+
+        var result = await executor.ExecuteAsync(step, Context(defaultBranch: "main"));
+
+        Assert.True(result.Success);
+        Assert.Equal("warning: some message", result.Error);
+    }
+
+    [Fact]
     public async Task Accepts_valid_branch_name_with_typical_git_ref_characters()
     {
         var processRunner = new Mock<IProcessRunner>();
