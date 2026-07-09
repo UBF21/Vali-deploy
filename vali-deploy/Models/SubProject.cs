@@ -11,4 +11,6 @@
         public string? DockerHubUser { get; set; }
         public List<string>? PublishArgs { get; set; }
         public bool ZipPublishOutput { get; set; } = true;
+        public Dictionary<string, List<vali_deploy.Domain.DeployStep>> PipelinesByEnvironment { get; set; } = new();
+        public string? DockerRegistryTokenEnvVar { get; set; }
     }
