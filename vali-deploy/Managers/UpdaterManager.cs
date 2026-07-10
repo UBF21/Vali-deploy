@@ -161,6 +161,8 @@ public static class UpdaterManager
                 AnsiConsole.MarkupLine(
                     $"[red]:cross_mark: Checksum verification failed. Expected {expectedSha256}, got {actualHash}. Aborting update.[/]");
                 File.Delete(zipPath);
+                AnsiConsole.MarkupLine(" :hand_with_fingers_splayed: Press any key to continue...");
+                Console.ReadKey();
                 return;
             }
 
