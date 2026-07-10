@@ -6,5 +6,5 @@ public static class Constants
     public const string ArchitectureOsxX64 = "osx-x64";
     public const string ArchitectureOsxArmx64 = "osx-arm64";
     public const string ArchitectureLinuxX64 = "linux-x64";
-    public const string UrlVersion = "https://vali-deploy.netlify.app/version/updates.json";
+    public const string UrlVersion = "https://api.github.com/repos/UBF21/Vali-deploy/releases/latest";
 }

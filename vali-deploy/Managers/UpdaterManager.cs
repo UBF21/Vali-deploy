@@ -9,18 +9,29 @@ namespace vali_deploy.Managers;
 
 public static class UpdaterManager
 {
-    // Este método solo consulta el JSON y devuelve la información de actualización si existe
+    private static readonly string[] KnownRuntimeIdentifiers = { "win-x64", "osx-x64", "osx-arm64", "linux-x64" };
+
+    // Este método consulta la API de GitHub Releases y devuelve la información de actualización si existe
     public static async Task<UpdateInfo?> GetUpdateInfoAsync(string url, string currentVersion)
     {
         try
         {
             using HttpClient client = new HttpClient();
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Vali-Deploy-Updater");
+
             string jsonResponse = await client.GetStringAsync(url);
-            var updateInfo = JsonSerializer.Deserialize<UpdateInfo>(jsonResponse,
+            var release = JsonSerializer.Deserialize<GitHubRelease>(jsonResponse,
                 options: new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-            //updateInfo.Version
-            if (updateInfo != null && Util.IsNewerVersion(updateInfo.Version, currentVersion))
+            if (release == null)
+            {
+                return null;
+            }
+
+            var updateInfo = MapToUpdateInfo(release);
+            updateInfo.Checksums = await FetchChecksumsAsync(client, release);
+
+            if (Util.IsNewerVersion(updateInfo.Version, currentVersion))
             {
                 return updateInfo;
             }
@@ -33,6 +44,59 @@ public static class UpdaterManager
         }
 
         return null;
+    }
+
+    private static UpdateInfo MapToUpdateInfo(GitHubRelease release)
+    {
+        var version = release.TagName.TrimStart('v');
+        var downloads = new Dictionary<string, string?>();
+
+        foreach (var rid in KnownRuntimeIdentifiers)
+        {
+            var asset = release.Assets.FirstOrDefault(a =>
+                a.Name.Contains(rid, StringComparison.OrdinalIgnoreCase) && a.Name.EndsWith(".zip"));
+            if (asset != null)
+            {
+                downloads[rid] = asset.BrowserDownloadUrl;
+            }
+        }
+
+        return new UpdateInfo
+        {
+            Version = version,
+            Downloads = downloads,
+            ReleaseDate = release.PublishedAt,
+            ReleaseNotes = release.Body
+        };
+    }
+
+    private static async Task<Dictionary<string, string?>> FetchChecksumsAsync(HttpClient client, GitHubRelease release)
+    {
+        var checksums = new Dictionary<string, string?>();
+        var checksumAsset = release.Assets.FirstOrDefault(a => a.Name.Equals("SHA256SUMS.txt", StringComparison.OrdinalIgnoreCase));
+        if (checksumAsset == null)
+        {
+            return checksums;
+        }
+
+        var content = await client.GetStringAsync(checksumAsset.BrowserDownloadUrl);
+
+        foreach (var line in content.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = line.Trim().Split(new[] { ' ', '\t' }, 2, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 2) continue;
+
+            var hash = parts[0];
+            var fileName = parts[1].TrimStart('*');
+
+            var matchedRid = KnownRuntimeIdentifiers.FirstOrDefault(rid =>
+                fileName.Contains(rid, StringComparison.OrdinalIgnoreCase));
+            if (matchedRid == null) continue;
+
+            checksums[matchedRid] = hash;
+        }
+
+        return checksums;
     }
 
     // Elimina archivos anteriores (versiones antiguas) en la carpeta base de la aplicación.
