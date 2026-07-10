@@ -4,4 +4,5 @@ public class DeployConfig
 {
     public Dictionary<string, Project> Projects { get; set; } = new();
     public List<DeployEnvironment> Environments { get; set; } = new();
+    public string Language { get; set; } = "en";
 }
