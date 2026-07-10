@@ -30,9 +30,9 @@ public class ZipPublishExecutorTests
             var callOrder = new List<string>();
 
             processRunner
-                .Setup(p => p.RunAsync(It.IsAny<string>(), tempDir, null))
-                .Callback<string, string, IDictionary<string, string>?>((cmd, _, _) => callOrder.Add(cmd))
-                .ReturnsAsync((string cmd, string _, IDictionary<string, string>? _) =>
+                .Setup(p => p.RunAsync(It.IsAny<string>(), tempDir, null, null))
+                .Callback<string, string, IDictionary<string, string>?, string?>((cmd, _, _, _) => callOrder.Add(cmd))
+                .ReturnsAsync((string cmd, string _, IDictionary<string, string>? _, string? _) =>
                     cmd.Contains("build") ? new ProcessRunResult(1, "", "build failed") : new ProcessRunResult(0, "", ""));
 
             var executor = new ZipPublishExecutor(processRunner.Object);
@@ -71,8 +71,8 @@ public class ZipPublishExecutorTests
             var callOrder = new List<string>();
 
             processRunner
-                .Setup(p => p.RunAsync(It.IsAny<string>(), tempDir, null))
-                .Callback<string, string, IDictionary<string, string>?>((cmd, _, _) => callOrder.Add(cmd))
+                .Setup(p => p.RunAsync(It.IsAny<string>(), tempDir, null, null))
+                .Callback<string, string, IDictionary<string, string>?, string?>((cmd, _, _, _) => callOrder.Add(cmd))
                 .ReturnsAsync(new ProcessRunResult(0, "", ""));
 
             var executor = new ZipPublishExecutor(processRunner.Object);
@@ -157,8 +157,8 @@ public class ZipPublishExecutorTests
             var callOrder = new List<string>();
 
             processRunner
-                .Setup(p => p.RunAsync(It.IsAny<string>(), tempDir, null))
-                .Callback<string, string, IDictionary<string, string>?>((cmd, _, _) => callOrder.Add(cmd))
+                .Setup(p => p.RunAsync(It.IsAny<string>(), tempDir, null, null))
+                .Callback<string, string, IDictionary<string, string>?, string?>((cmd, _, _, _) => callOrder.Add(cmd))
                 .ReturnsAsync(new ProcessRunResult(0, "", ""));
 
             var executor = new ZipPublishExecutor(processRunner.Object);
@@ -188,9 +188,9 @@ public class ZipPublishExecutorTests
             var callOrder = new List<string>();
 
             processRunner
-                .Setup(p => p.RunAsync(It.IsAny<string>(), tempDir, null))
-                .Callback<string, string, IDictionary<string, string>?>((cmd, _, _) => callOrder.Add(cmd))
-                .ReturnsAsync((string cmd, string _, IDictionary<string, string>? _) =>
+                .Setup(p => p.RunAsync(It.IsAny<string>(), tempDir, null, null))
+                .Callback<string, string, IDictionary<string, string>?, string?>((cmd, _, _, _) => callOrder.Add(cmd))
+                .ReturnsAsync((string cmd, string _, IDictionary<string, string>? _, string? _) =>
                     cmd.Contains("bin")
                         ? new ProcessRunResult(5, "", "Acceso denegado: archivo en uso")
                         : new ProcessRunResult(0, "", ""));

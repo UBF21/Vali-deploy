@@ -27,7 +27,7 @@ public class DockerImagePruneExecutorTests
         processRunner
             .Setup(p => p.RunAsync(
                 "docker image prune -f --filter \"label=project=proj-sub\"",
-                "/tmp/proj", null))
+                "/tmp/proj", null, null))
             .ReturnsAsync(new ProcessRunResult(0, "Total reclaimed space: 0B", ""));
 
         var executor = new DockerImagePruneExecutor(processRunner.Object);

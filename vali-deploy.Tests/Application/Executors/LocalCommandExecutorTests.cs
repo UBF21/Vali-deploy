@@ -26,7 +26,7 @@ public class LocalCommandExecutorTests
     public async Task ExecuteAsync_runs_Args_Command_in_ProjectPath_and_reports_success_on_exit_zero()
     {
         var processRunner = new Mock<IProcessRunner>();
-        processRunner.Setup(p => p.RunAsync("dotnet build", Context().ProjectPath, null))
+        processRunner.Setup(p => p.RunAsync("dotnet build", Context().ProjectPath, null, null))
             .ReturnsAsync(new ProcessRunResult(0, "Build succeeded", ""));
 
         var executor = new LocalCommandExecutor(processRunner.Object);
@@ -43,7 +43,7 @@ public class LocalCommandExecutorTests
     public async Task ExecuteAsync_reports_failure_on_nonzero_exit()
     {
         var processRunner = new Mock<IProcessRunner>();
-        processRunner.Setup(p => p.RunAsync(It.IsAny<string>(), It.IsAny<string>(), null))
+        processRunner.Setup(p => p.RunAsync(It.IsAny<string>(), It.IsAny<string>(), null, null))
             .ReturnsAsync(new ProcessRunResult(1, "", "error CS0000"));
 
         var executor = new LocalCommandExecutor(processRunner.Object);
@@ -66,6 +66,6 @@ public class LocalCommandExecutorTests
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => executor.ExecuteAsync(step, Context()));
 
         Assert.Equal("El paso 'build' (LocalCommand) requiere Args[\"Command\"].", ex.Message);
-        processRunner.Verify(p => p.RunAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>()), Times.Never);
+        processRunner.Verify(p => p.RunAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), null), Times.Never);
     }
 }

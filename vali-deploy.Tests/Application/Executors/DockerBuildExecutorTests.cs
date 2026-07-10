@@ -28,7 +28,7 @@ public class DockerBuildExecutorTests
             .Setup(p => p.RunAsync(
                 "docker build -f \"/tmp/proj/Dockerfile\" -t proj-sub:latest --label project=proj-sub \"/tmp/proj\"",
                 "/tmp/proj",
-                It.Is<IDictionary<string, string>>(d => d["DOCKER_BUILDKIT"] == "1")))
+                It.Is<IDictionary<string, string>>(d => d["DOCKER_BUILDKIT"] == "1"), null))
             .ReturnsAsync(new ProcessRunResult(0, "Successfully built", ""));
 
         var executor = new DockerBuildExecutor(processRunner.Object);
@@ -51,7 +51,7 @@ public class DockerBuildExecutorTests
             .Setup(p => p.RunAsync(
                 "docker build -f \"/tmp/proj/Dockerfile\" -t proj-sub:latest --build-arg KEY=VALUE --label project=proj-sub \"/tmp/proj\"",
                 "/tmp/proj",
-                It.IsAny<IDictionary<string, string>>()))
+                It.IsAny<IDictionary<string, string>>(), null))
             .ReturnsAsync(new ProcessRunResult(0, "", ""));
 
         var executor = new DockerBuildExecutor(processRunner.Object);
@@ -79,7 +79,7 @@ public class DockerBuildExecutorTests
             .Setup(p => p.RunAsync(
                 It.Is<string>(c => c.Contains("--label project=proj-sub")),
                 "/tmp/proj",
-                It.IsAny<IDictionary<string, string>>()))
+                It.IsAny<IDictionary<string, string>>(), null))
             .ReturnsAsync(new ProcessRunResult(0, "", ""));
 
         var executor = new DockerBuildExecutor(processRunner.Object);
@@ -95,6 +95,6 @@ public class DockerBuildExecutorTests
         processRunner.Verify(p => p.RunAsync(
             It.Is<string>(c => c.Contains("--label project=proj-sub")),
             "/tmp/proj",
-            It.IsAny<IDictionary<string, string>>()), Times.Once);
+            It.IsAny<IDictionary<string, string>>(), null), Times.Once);
     }
 }

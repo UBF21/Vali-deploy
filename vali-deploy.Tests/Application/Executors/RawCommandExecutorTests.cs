@@ -18,7 +18,7 @@ public class RawCommandExecutorTests
     public async Task ExecuteAsync_runs_Args_Command_verbatim()
     {
         var processRunner = new Mock<IProcessRunner>();
-        processRunner.Setup(p => p.RunAsync("echo custom", "/tmp/proj", null))
+        processRunner.Setup(p => p.RunAsync("echo custom", "/tmp/proj", null, null))
             .ReturnsAsync(new ProcessRunResult(0, "custom", ""));
 
         var executor = new RawCommandExecutor(processRunner.Object);
@@ -49,6 +49,6 @@ public class RawCommandExecutorTests
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => executor.ExecuteAsync(step, context));
 
         Assert.Equal("El paso 'custom' (RawCommand) requiere Args[\"Command\"].", ex.Message);
-        processRunner.Verify(p => p.RunAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>()), Times.Never);
+        processRunner.Verify(p => p.RunAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), null), Times.Never);
     }
 }

@@ -25,10 +25,10 @@ public class DockerPushExecutorTests
     {
         var processRunner = new Mock<IProcessRunner>();
         processRunner
-            .Setup(p => p.RunAsync("docker tag proj-sub:latest myuser/proj-sub:latest", "/tmp/proj", It.IsAny<IDictionary<string, string>>()))
+            .Setup(p => p.RunAsync("docker tag proj-sub:latest myuser/proj-sub:latest", "/tmp/proj", It.IsAny<IDictionary<string, string>>(), null))
             .ReturnsAsync(new ProcessRunResult(0, "", ""));
         processRunner
-            .Setup(p => p.RunAsync("docker push myuser/proj-sub:latest", "/tmp/proj", It.IsAny<IDictionary<string, string>>()))
+            .Setup(p => p.RunAsync("docker push myuser/proj-sub:latest", "/tmp/proj", It.IsAny<IDictionary<string, string>>(), null))
             .ReturnsAsync(new ProcessRunResult(0, "pushed", ""));
 
         var executor = new DockerPushExecutor(processRunner.Object);
@@ -41,8 +41,8 @@ public class DockerPushExecutorTests
         var result = await executor.ExecuteAsync(step, Context());
 
         Assert.True(result.Success);
-        processRunner.Verify(p => p.RunAsync("docker tag proj-sub:latest myuser/proj-sub:latest", "/tmp/proj", It.IsAny<IDictionary<string, string>>()), Times.Once);
-        processRunner.Verify(p => p.RunAsync("docker push myuser/proj-sub:latest", "/tmp/proj", It.IsAny<IDictionary<string, string>>()), Times.Once);
+        processRunner.Verify(p => p.RunAsync("docker tag proj-sub:latest myuser/proj-sub:latest", "/tmp/proj", It.IsAny<IDictionary<string, string>>(), null), Times.Once);
+        processRunner.Verify(p => p.RunAsync("docker push myuser/proj-sub:latest", "/tmp/proj", It.IsAny<IDictionary<string, string>>(), null), Times.Once);
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public class DockerPushExecutorTests
     {
         var processRunner = new Mock<IProcessRunner>();
         processRunner
-            .Setup(p => p.RunAsync(It.Is<string>(c => c.StartsWith("docker tag")), "/tmp/proj", It.IsAny<IDictionary<string, string>>()))
+            .Setup(p => p.RunAsync(It.Is<string>(c => c.StartsWith("docker tag")), "/tmp/proj", It.IsAny<IDictionary<string, string>>(), null))
             .ReturnsAsync(new ProcessRunResult(1, "", "no such image"));
 
         var executor = new DockerPushExecutor(processRunner.Object);
@@ -63,6 +63,6 @@ public class DockerPushExecutorTests
         var result = await executor.ExecuteAsync(step, Context());
 
         Assert.False(result.Success);
-        processRunner.Verify(p => p.RunAsync(It.Is<string>(c => c.StartsWith("docker push")), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>()), Times.Never);
+        processRunner.Verify(p => p.RunAsync(It.Is<string>(c => c.StartsWith("docker push")), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), null), Times.Never);
     }
 }

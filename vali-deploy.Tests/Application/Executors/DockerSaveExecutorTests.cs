@@ -25,7 +25,7 @@ public class DockerSaveExecutorTests
     {
         var processRunner = new Mock<IProcessRunner>();
         processRunner
-            .Setup(p => p.RunAsync("docker save -o \"/tmp/proj/image.tar\" proj-sub:latest", "/tmp/proj", null))
+            .Setup(p => p.RunAsync("docker save -o \"/tmp/proj/image.tar\" proj-sub:latest", "/tmp/proj", null, null))
             .ReturnsAsync(new ProcessRunResult(0, "", ""));
 
         var executor = new DockerSaveExecutor(processRunner.Object);

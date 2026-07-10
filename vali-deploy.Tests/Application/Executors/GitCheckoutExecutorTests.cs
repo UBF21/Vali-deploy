@@ -24,9 +24,9 @@ public class GitCheckoutExecutorTests
     public async Task Checks_out_branch_from_Args_and_pulls_by_default()
     {
         var processRunner = new Mock<IProcessRunner>();
-        processRunner.Setup(p => p.RunAsync("git checkout develop", "/tmp/proj", null))
+        processRunner.Setup(p => p.RunAsync("git checkout develop", "/tmp/proj", null, null))
             .ReturnsAsync(new ProcessRunResult(0, "", ""));
-        processRunner.Setup(p => p.RunAsync("git pull", "/tmp/proj", null))
+        processRunner.Setup(p => p.RunAsync("git pull", "/tmp/proj", null, null))
             .ReturnsAsync(new ProcessRunResult(0, "Already up to date.", ""));
 
         var executor = new GitCheckoutExecutor(processRunner.Object);
@@ -35,16 +35,16 @@ public class GitCheckoutExecutorTests
         var result = await executor.ExecuteAsync(step, Context());
 
         Assert.True(result.Success);
-        processRunner.Verify(p => p.RunAsync("git pull", "/tmp/proj", null), Times.Once);
+        processRunner.Verify(p => p.RunAsync("git pull", "/tmp/proj", null, null), Times.Once);
     }
 
     [Fact]
     public async Task Falls_back_to_environment_DefaultBranch_when_Args_Branch_missing()
     {
         var processRunner = new Mock<IProcessRunner>();
-        processRunner.Setup(p => p.RunAsync("git checkout main", "/tmp/proj", null))
+        processRunner.Setup(p => p.RunAsync("git checkout main", "/tmp/proj", null, null))
             .ReturnsAsync(new ProcessRunResult(0, "", ""));
-        processRunner.Setup(p => p.RunAsync("git pull", "/tmp/proj", null))
+        processRunner.Setup(p => p.RunAsync("git pull", "/tmp/proj", null, null))
             .ReturnsAsync(new ProcessRunResult(0, "", ""));
 
         var executor = new GitCheckoutExecutor(processRunner.Object);
@@ -53,14 +53,14 @@ public class GitCheckoutExecutorTests
         var result = await executor.ExecuteAsync(step, Context(defaultBranch: "main"));
 
         Assert.True(result.Success);
-        processRunner.Verify(p => p.RunAsync("git checkout main", "/tmp/proj", null), Times.Once);
+        processRunner.Verify(p => p.RunAsync("git checkout main", "/tmp/proj", null, null), Times.Once);
     }
 
     [Fact]
     public async Task Does_not_pull_when_SyncBeforeBuild_is_false()
     {
         var processRunner = new Mock<IProcessRunner>();
-        processRunner.Setup(p => p.RunAsync("git checkout main", "/tmp/proj", null))
+        processRunner.Setup(p => p.RunAsync("git checkout main", "/tmp/proj", null, null))
             .ReturnsAsync(new ProcessRunResult(0, "", ""));
 
         var executor = new GitCheckoutExecutor(processRunner.Object);
@@ -73,7 +73,7 @@ public class GitCheckoutExecutorTests
         var result = await executor.ExecuteAsync(step, Context(defaultBranch: "main"));
 
         Assert.True(result.Success);
-        processRunner.Verify(p => p.RunAsync("git pull", It.IsAny<string>(), null), Times.Never);
+        processRunner.Verify(p => p.RunAsync("git pull", It.IsAny<string>(), null, null), Times.Never);
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class GitCheckoutExecutorTests
 
         Assert.False(result.Success);
         Assert.Contains("rama", result.Error, StringComparison.OrdinalIgnoreCase);
-        processRunner.Verify(p => p.RunAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>()), Times.Never);
+        processRunner.Verify(p => p.RunAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), null), Times.Never);
     }
 
     [Fact]
@@ -121,14 +121,14 @@ public class GitCheckoutExecutorTests
 
         Assert.False(result.Success);
         Assert.Contains("rama", result.Error, StringComparison.OrdinalIgnoreCase);
-        processRunner.Verify(p => p.RunAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>()), Times.Never);
+        processRunner.Verify(p => p.RunAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), null), Times.Never);
     }
 
     [Fact]
     public async Task Captures_checkout_stderr_when_SyncBeforeBuild_is_false()
     {
         var processRunner = new Mock<IProcessRunner>();
-        processRunner.Setup(p => p.RunAsync("git checkout main", "/tmp/proj", null))
+        processRunner.Setup(p => p.RunAsync("git checkout main", "/tmp/proj", null, null))
             .ReturnsAsync(new ProcessRunResult(0, "", "warning: some message"));
 
         var executor = new GitCheckoutExecutor(processRunner.Object);
@@ -148,9 +148,9 @@ public class GitCheckoutExecutorTests
     public async Task Accepts_valid_branch_name_with_typical_git_ref_characters()
     {
         var processRunner = new Mock<IProcessRunner>();
-        processRunner.Setup(p => p.RunAsync("git checkout feature/my-branch_v2.1", "/tmp/proj", null))
+        processRunner.Setup(p => p.RunAsync("git checkout feature/my-branch_v2.1", "/tmp/proj", null, null))
             .ReturnsAsync(new ProcessRunResult(0, "", ""));
-        processRunner.Setup(p => p.RunAsync("git pull", "/tmp/proj", null))
+        processRunner.Setup(p => p.RunAsync("git pull", "/tmp/proj", null, null))
             .ReturnsAsync(new ProcessRunResult(0, "", ""));
 
         var executor = new GitCheckoutExecutor(processRunner.Object);
@@ -163,6 +163,6 @@ public class GitCheckoutExecutorTests
         var result = await executor.ExecuteAsync(step, Context());
 
         Assert.True(result.Success);
-        processRunner.Verify(p => p.RunAsync("git checkout feature/my-branch_v2.1", "/tmp/proj", null), Times.Once);
+        processRunner.Verify(p => p.RunAsync("git checkout feature/my-branch_v2.1", "/tmp/proj", null, null), Times.Once);
     }
 }
