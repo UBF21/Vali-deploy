@@ -74,13 +74,40 @@ public class PipelineTemplateFactoryTests
     }
 
     [Fact]
-    public void DockerCompose_template_leaves_RegistryTag_as_empty_placeholder_for_manual_completion()
+    public void DockerCompose_template_falls_back_to_bare_imageTag_when_no_registry_configured()
     {
         var factory = new PipelineTemplateFactory();
 
         var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", environment: Environment());
         var pushStep = steps.Single(s => s.Type == StepType.DockerPush);
 
-        Assert.Equal("", pushStep.Args["RegistryTag"]);
+        Assert.Equal("shop-api:latest", pushStep.Args["RegistryTag"]);
+    }
+
+    [Fact]
+    public void DockerCompose_template_builds_RegistryTag_for_docker_hub_when_host_is_empty()
+    {
+        var factory = new PipelineTemplateFactory();
+        var registry = new DockerRegistry { Host = "", Username = "myuser" };
+
+        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", environment: Environment(), dockerRegistry: registry);
+        var pushStep = steps.Single(s => s.Type == StepType.DockerPush);
+
+        Assert.Equal("myuser/shop-api:latest", pushStep.Args["RegistryTag"]);
+    }
+
+    [Fact]
+    public void DockerCompose_template_builds_RegistryTag_with_host_for_generic_registry()
+    {
+        var factory = new PipelineTemplateFactory();
+        var registry = new DockerRegistry { Host = "ghcr.io", Username = "myorg", TokenEnvVar = "GHCR_TOKEN" };
+
+        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", environment: Environment(), dockerRegistry: registry);
+        var pushStep = steps.Single(s => s.Type == StepType.DockerPush);
+
+        Assert.Equal("ghcr.io/myorg/shop-api:latest", pushStep.Args["RegistryTag"]);
+        Assert.Equal("ghcr.io", pushStep.Args["RegistryHost"]);
+        Assert.Equal("myorg", pushStep.Args["RegistryUsername"]);
+        Assert.Equal("GHCR_TOKEN", pushStep.Args["RegistryTokenEnvVar"]);
     }
 }

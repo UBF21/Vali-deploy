@@ -34,7 +34,7 @@ public static class PipelineEditorMenu
 
             var factory = new PipelineTemplateFactory();
             configSubProject.PipelinesByEnvironment[environmentName] = template == "Docker Compose"
-                ? factory.CreateDockerComposeTemplate(projectName, configSubProject.Name, environment)
+                ? factory.CreateDockerComposeTemplate(projectName, configSubProject.Name, environment, configSubProject.DockerRegistry)
                 : factory.CreatePublishZipTemplate(projectName, configSubProject.Name);
 
             repository.Save(config);
