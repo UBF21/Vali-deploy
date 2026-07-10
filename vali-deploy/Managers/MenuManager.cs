@@ -74,6 +74,9 @@ public static class MenuManager
                 case "View Deploy History":
                     await Presentation.DeployHistoryView.ShowAsync(CompositionRoot.CreateDeployHistoryRepository(), _projects.Keys.ToList());
                     break;
+                case "View Environments Tree":
+                    await Presentation.EnvironmentsTreeView.ShowAsync(Application.EnvironmentsTreeBuilder.Build(_repository.Load()));
+                    break;
                 case "[seagreen1]Exit[/]":
                     running = false;
                     AnsiConsole.MarkupLine("[yellow] Leaving...[/]");
@@ -113,7 +116,7 @@ public static class MenuManager
                 .Title("What do you want to do?")
                 .AddChoices("Add Project", "Remove Project", "Show Projects", "Configure Publish File Omissions",
                     "Remove Subprojects", "Manage Docker Projects", "Manage Publish Arguments", "Manage Environments",
-                    "View Deploy History", "[seagreen1]Exit[/]")
+                    "View Deploy History", "View Environments Tree", "[seagreen1]Exit[/]")
         );
     }
 
