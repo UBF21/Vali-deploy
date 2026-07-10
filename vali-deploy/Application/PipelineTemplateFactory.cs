@@ -52,4 +52,55 @@ public class PipelineTemplateFactory
             new() { Type = StepType.SshCommand, Name = "Reiniciar servicio/IIS pool", Args = { ["Command"] = "" } }
         };
     }
+
+    public List<DeployStep> CreateLocalPublishTemplate(List<string> omitFiles) =>
+        new()
+        {
+            new DeployStep
+            {
+                Type = StepType.ZipPublishOutput,
+                Name = "Build, publish y comprimir output",
+                Args = { ["OmitFiles"] = omitFiles.Count > 0 ? string.Join("|", omitFiles) : "" }
+            }
+        };
+
+    public List<DeployStep> CreateLocalDockerBuildTemplate(string dockerfilePath, string imageTag, string? buildArgs) =>
+        new()
+        {
+            new DeployStep
+            {
+                Type = StepType.DockerBuild,
+                Name = "Build imagen",
+                Args = { ["Dockerfile"] = dockerfilePath, ["ImageTag"] = imageTag, ["BuildArgs"] = buildArgs ?? "" }
+            }
+        };
+
+    public List<DeployStep> CreateLocalDockerPushTemplate(string imageTag, DockerRegistry? dockerRegistry) =>
+        new()
+        {
+            new DeployStep
+            {
+                Type = StepType.DockerPush,
+                Name = "Push a registry",
+                Args =
+                {
+                    ["ImageTag"] = imageTag,
+                    ["RegistryTag"] = BuildRegistryTag(dockerRegistry, imageTag),
+                    ["RegistryHost"] = dockerRegistry?.Host ?? "",
+                    ["RegistryUsername"] = dockerRegistry?.Username ?? "",
+                    ["RegistryTokenEnvVar"] = dockerRegistry?.TokenEnvVar ?? ""
+                }
+            }
+        };
+
+    public List<DeployStep> CreateLocalDockerRunTemplate(string imageTag, string? runArgs) =>
+        new()
+        {
+            new DeployStep
+            {
+                Type = StepType.DockerRun,
+                Name = "Run contenedor",
+                Args = { ["ImageTag"] = imageTag, ["RunArgs"] = runArgs ?? "" }
+            }
+        };
 }

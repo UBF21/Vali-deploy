@@ -110,4 +110,66 @@ public class PipelineTemplateFactoryTests
         Assert.Equal("myorg", pushStep.Args["RegistryUsername"]);
         Assert.Equal("GHCR_TOKEN", pushStep.Args["RegistryTokenEnvVar"]);
     }
+
+    [Fact]
+    public void LocalPublish_template_is_a_single_ZipPublishOutput_step()
+    {
+        var factory = new PipelineTemplateFactory();
+
+        var steps = factory.CreateLocalPublishTemplate(omitFiles: new List<string>());
+
+        Assert.Single(steps);
+        Assert.Equal(StepType.ZipPublishOutput, steps[0].Type);
+        Assert.Equal("", steps[0].Args["OmitFiles"]);
+    }
+
+    [Fact]
+    public void LocalPublish_template_encodes_OmitFiles_pipe_delimited()
+    {
+        var factory = new PipelineTemplateFactory();
+
+        var steps = factory.CreateLocalPublishTemplate(omitFiles: new List<string> { "a.txt", "b.txt" });
+
+        Assert.Equal("a.txt|b.txt", steps[0].Args["OmitFiles"]);
+    }
+
+    [Fact]
+    public void LocalDockerBuild_template_is_a_single_DockerBuild_step()
+    {
+        var factory = new PipelineTemplateFactory();
+
+        var steps = factory.CreateLocalDockerBuildTemplate(dockerfilePath: "Dockerfile", imageTag: "shop-api:latest", buildArgs: "--build-arg X=1");
+
+        Assert.Single(steps);
+        Assert.Equal(StepType.DockerBuild, steps[0].Type);
+        Assert.Equal("Dockerfile", steps[0].Args["Dockerfile"]);
+        Assert.Equal("shop-api:latest", steps[0].Args["ImageTag"]);
+        Assert.Equal("--build-arg X=1", steps[0].Args["BuildArgs"]);
+    }
+
+    [Fact]
+    public void LocalDockerPush_template_builds_RegistryTag_from_DockerRegistry()
+    {
+        var factory = new PipelineTemplateFactory();
+        var registry = new DockerRegistry { Host = "", Username = "myuser" };
+
+        var steps = factory.CreateLocalDockerPushTemplate(imageTag: "shop-api:latest", dockerRegistry: registry);
+
+        Assert.Single(steps);
+        Assert.Equal(StepType.DockerPush, steps[0].Type);
+        Assert.Equal("myuser/shop-api:latest", steps[0].Args["RegistryTag"]);
+    }
+
+    [Fact]
+    public void LocalDockerRun_template_is_a_single_DockerRun_step()
+    {
+        var factory = new PipelineTemplateFactory();
+
+        var steps = factory.CreateLocalDockerRunTemplate(imageTag: "shop-api:latest", runArgs: "-p 8080:80");
+
+        Assert.Single(steps);
+        Assert.Equal(StepType.DockerRun, steps[0].Type);
+        Assert.Equal("shop-api:latest", steps[0].Args["ImageTag"]);
+        Assert.Equal("-p 8080:80", steps[0].Args["RunArgs"]);
+    }
 }
