@@ -19,7 +19,7 @@ public class DeployStepTests
     {
         var expected = new[]
         {
-            "GitCheckout", "LocalCommand", "DockerBuild", "DockerPush", "DockerSave", "DockerLoad",
+            "GitCheckout", "LocalCommand", "DockerBuild", "DockerRun", "DockerPush", "DockerSave", "DockerLoad",
             "DockerImagePrune", "DockerComposePull", "DockerComposeUp", "DockerComposeDown",
             "ZipPublishOutput", "CopyToRemote", "SshCommand", "RawCommand"
         };

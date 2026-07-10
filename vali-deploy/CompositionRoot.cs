@@ -28,6 +28,7 @@ public static class CompositionRoot
             new RawCommandExecutor(processRunner),
             new GitCheckoutExecutor(processRunner),
             new DockerBuildExecutor(processRunner),
+            new DockerRunExecutor(),
             new DockerPushExecutor(processRunner, secretResolver),
             new DockerSaveExecutor(processRunner),
             new DockerImagePruneExecutor(processRunner),

@@ -5,6 +5,7 @@ public enum StepType
     GitCheckout,
     LocalCommand,
     DockerBuild,
+    DockerRun,
     DockerPush,
     DockerSave,
     DockerLoad,
