@@ -24,10 +24,11 @@ public class DockerPushExecutor : IStepExecutor
         var registryTag = step.Args["RegistryTag"];
         var extraEnv = new Dictionary<string, string> { ["DOCKER_BUILDKIT"] = "1" };
 
-        var loginFailure = await TryLoginAsync(step, context, extraEnv, stopwatch);
-        if (loginFailure != null)
+        var loginRun = await TryLoginAsync(step, context, extraEnv);
+        if (loginRun != null && loginRun.ExitCode != 0)
         {
-            return loginFailure;
+            stopwatch.Stop();
+            return BuildResult(step, loginRun, loginRun.StdOut, stopwatch.Elapsed);
         }
 
         var tagRun = await _processRunner.RunAsync($"docker tag {imageTag} {registryTag}", context.ProjectPath, extraEnv);
@@ -44,7 +45,7 @@ public class DockerPushExecutor : IStepExecutor
         return BuildResult(step, pushRun, tagRun.StdOut + pushRun.StdOut, stopwatch.Elapsed);
     }
 
-    private async Task<StepResult?> TryLoginAsync(DeployStep step, StepExecutionContext context, IDictionary<string, string> extraEnv, Stopwatch stopwatch)
+    private async Task<ProcessRunResult?> TryLoginAsync(DeployStep step, StepExecutionContext context, IDictionary<string, string> extraEnv)
     {
         var registryHost = step.Args.GetValueOrDefault("RegistryHost", "");
         var registryUsername = step.Args.GetValueOrDefault("RegistryUsername", "");
@@ -60,14 +61,7 @@ public class DockerPushExecutor : IStepExecutor
             ? $"docker login -u {registryUsername} --password-stdin"
             : $"docker login {registryHost} -u {registryUsername} --password-stdin";
 
-        var loginRun = await _processRunner.RunAsync(loginCommand, context.ProjectPath, extraEnv, token);
-        if (loginRun.ExitCode == 0)
-        {
-            return null;
-        }
-
-        stopwatch.Stop();
-        return BuildResult(step, loginRun, loginRun.StdOut, stopwatch.Elapsed);
+        return await _processRunner.RunAsync(loginCommand, context.ProjectPath, extraEnv, token);
     }
 
     private static StepResult BuildResult(DeployStep step, ProcessRunResult run, string output, TimeSpan duration) => new()
