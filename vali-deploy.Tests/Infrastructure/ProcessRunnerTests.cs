@@ -26,4 +26,16 @@ public class ProcessRunnerTests
 
         Assert.Equal(3, result.ExitCode);
     }
+
+    [Fact]
+    public async Task RunAsync_pipes_stdInput_to_the_process()
+    {
+        var runner = new ProcessRunner();
+        var command = OperatingSystem.IsWindows() ? "findstr ." : "cat";
+
+        var result = await runner.RunAsync(command, Directory.GetCurrentDirectory(), stdInput: "secreto123");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("secreto123", result.StdOut);
+    }
 }

@@ -5,7 +5,7 @@ namespace vali_deploy.Infrastructure;
 
 public class ProcessRunner : IProcessRunner
 {
-    public async Task<ProcessRunResult> RunAsync(string command, string workingDirectory, IDictionary<string, string>? extraEnvVars = null)
+    public async Task<ProcessRunResult> RunAsync(string command, string workingDirectory, IDictionary<string, string>? extraEnvVars = null, string? stdInput = null)
     {
         var startInfo = CreateProcessStartInfo(command, workingDirectory);
 
@@ -15,6 +15,11 @@ public class ProcessRunner : IProcessRunner
             {
                 startInfo.Environment[key] = value;
             }
+        }
+
+        if (stdInput != null)
+        {
+            startInfo.RedirectStandardInput = true;
         }
 
         using var process = new Process { StartInfo = startInfo };
@@ -27,6 +32,13 @@ public class ProcessRunner : IProcessRunner
         process.Start();
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
+
+        if (stdInput != null)
+        {
+            await process.StandardInput.WriteAsync(stdInput);
+            process.StandardInput.Close();
+        }
+
         await process.WaitForExitAsync();
 
         return new ProcessRunResult(process.ExitCode, stdOut.ToString(), stdErr.ToString());
