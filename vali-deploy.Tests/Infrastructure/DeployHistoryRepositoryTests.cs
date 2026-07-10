@@ -118,4 +118,26 @@ public class DeployHistoryRepositoryTests
             Directory.Delete(tempLogsDir, recursive: true);
         }
     }
+
+    [Fact]
+    public void GetRecent_counts_a_line_that_deserializes_to_null_as_corrupted()
+    {
+        var tempLogsDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            var valid = new DeployRunSummary { ProjectName = "p", SubProjectName = "s", StartedAtUtc = DateTime.UtcNow };
+            var indexFile = Path.Combine(tempLogsDir, "deploy-history.jsonl");
+            File.WriteAllLines(indexFile, new[] { "null", JsonSerializer.Serialize(valid) });
+
+            var repository = new DeployHistoryRepository(tempLogsDir);
+            var result = repository.GetRecent(30);
+
+            Assert.Single(result.Runs);
+            Assert.Equal(1, result.SkippedCorruptedLines);
+        }
+        finally
+        {
+            Directory.Delete(tempLogsDir, recursive: true);
+        }
+    }
 }
