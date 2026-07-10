@@ -9,8 +9,7 @@ public class PipelineLogger : IPipelineLogger
 
     public PipelineLogger(string? logsDirectory = null)
     {
-        _logsDirectory = logsDirectory ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Documents", "vali-deploy", "logs");
+        _logsDirectory = logsDirectory ?? Utils.Constants.DefaultLogsDirectory();
     }
 
     public void StartRun(string projectName, string subProjectName)
