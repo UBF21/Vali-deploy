@@ -71,6 +71,9 @@ public static class MenuManager
                 case "Manage Environments":
                     await Presentation.EnvironmentMenu.StartAsync(CompositionRoot.CreateProjectRepository());
                     break;
+                case "View Deploy History":
+                    await Presentation.DeployHistoryView.ShowAsync(CompositionRoot.CreateDeployHistoryRepository(), _projects.Keys.ToList());
+                    break;
                 case "[seagreen1]Exit[/]":
                     running = false;
                     AnsiConsole.MarkupLine("[yellow] Leaving...[/]");
@@ -110,7 +113,7 @@ public static class MenuManager
                 .Title("What do you want to do?")
                 .AddChoices("Add Project", "Remove Project", "Show Projects", "Configure Publish File Omissions",
                     "Remove Subprojects", "Manage Docker Projects", "Manage Publish Arguments", "Manage Environments",
-                    "[seagreen1]Exit[/]")
+                    "View Deploy History", "[seagreen1]Exit[/]")
         );
     }
 
@@ -884,7 +887,7 @@ public static class MenuManager
 
         var pipelineRunner = CompositionRoot.CreatePipelineRunner();
         var logger = CompositionRoot.CreatePipelineLogger();
-        logger.StartRun(projectName, subProject.Name);
+        logger.StartRun(projectName, subProject.Name, LocalEnvironment.Name);
 
         var view = new Presentation.PipelineExecutionView();
         var result = await view.RunAsync(pipelineRunner, steps, context);
@@ -893,6 +896,8 @@ public static class MenuManager
         {
             logger.WriteStep(stepResult);
         }
+
+        logger.FinishRun(result);
 
         PauseForUserInput(result.Success ? "Ejecución completada con éxito." : "La ejecución falló, revisá el detalle arriba.");
     }
@@ -942,7 +947,7 @@ public static class MenuManager
 
         var pipelineRunner = CompositionRoot.CreatePipelineRunner();
         var logger = CompositionRoot.CreatePipelineLogger();
-        logger.StartRun(projectName, subProject.Name);
+        logger.StartRun(projectName, subProject.Name, environmentName);
 
         var view = new Presentation.PipelineExecutionView();
         var result = await view.RunAsync(pipelineRunner, steps, context);
@@ -951,6 +956,8 @@ public static class MenuManager
         {
             logger.WriteStep(stepResult);
         }
+
+        logger.FinishRun(result);
 
         PauseForUserInput(result.Success ? "Pipeline completado con éxito." : "Pipeline falló, revisá el detalle arriba.");
     }

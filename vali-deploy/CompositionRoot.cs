@@ -45,4 +45,6 @@ public static class CompositionRoot
     public static IProjectRepository CreateProjectRepository() => new ProjectRepository();
 
     public static IPipelineLogger CreatePipelineLogger() => new PipelineLogger();
+
+    public static IDeployHistoryRepository CreateDeployHistoryRepository() => new DeployHistoryRepository();
 }
