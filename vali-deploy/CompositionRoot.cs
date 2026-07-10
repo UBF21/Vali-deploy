@@ -11,8 +11,9 @@ public static class CompositionRoot
         var processRunner = new ProcessRunner();
         var secretResolver = new EnvVarSecretResolver();
         var sshClientFactory = new SshClientFactory(secretResolver);
+        var interactiveLauncher = new InteractiveProcessLauncher();
 
-        return new PipelineRunner(BuildExecutors(processRunner, sshClientFactory, secretResolver));
+        return new PipelineRunner(BuildExecutors(processRunner, sshClientFactory, secretResolver, interactiveLauncher));
     }
 
     /// <summary>
@@ -21,14 +22,14 @@ public static class CompositionRoot
     /// registration completeness against every <see cref="vali_deploy.Domain.StepType"/> value without needing
     /// real infrastructure (a live process runner or SSH connection) or introspecting a private dictionary.
     /// </summary>
-    public static IStepExecutor[] BuildExecutors(IProcessRunner processRunner, ISshClientFactory sshClientFactory, ISecretResolver secretResolver) =>
+    public static IStepExecutor[] BuildExecutors(IProcessRunner processRunner, ISshClientFactory sshClientFactory, ISecretResolver secretResolver, IInteractiveProcessLauncher interactiveLauncher) =>
         new IStepExecutor[]
         {
             new LocalCommandExecutor(processRunner),
             new RawCommandExecutor(processRunner),
             new GitCheckoutExecutor(processRunner),
             new DockerBuildExecutor(processRunner),
-            new DockerRunExecutor(),
+            new DockerRunExecutor(interactiveLauncher),
             new DockerPushExecutor(processRunner, secretResolver),
             new DockerSaveExecutor(processRunner),
             new DockerImagePruneExecutor(processRunner),
