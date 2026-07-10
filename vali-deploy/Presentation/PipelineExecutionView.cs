@@ -11,7 +11,7 @@ public class PipelineExecutionView
         PipelineResult? result = null;
 
         await AnsiConsole.Progress()
-            .Columns(new TaskDescriptionColumn(), new SpinnerColumn(), new ElapsedTimeColumn())
+            .Columns(new TaskDescriptionColumn(), new ProgressBarColumn(), new PercentageColumn(), new SpinnerColumn(), new ElapsedTimeColumn())
             .StartAsync(async ctx => result = await RunPipelineWithProgressAsync(pipelineRunner, steps, context, ctx));
 
         RenderSummaryTable(result!);
@@ -24,19 +24,23 @@ public class PipelineExecutionView
         StepExecutionContext context,
         ProgressContext ctx)
     {
+        var pipelineTask = ctx.AddTask("Pipeline", autoStart: true, maxValue: steps.Count);
+
         var tasks = steps.ToDictionary(s => s, s => ctx.AddTask(s.Name, autoStart: false));
         tasks[steps[0]].StartTask();
 
-        var progress = new Progress<StepResult>(stepResult => OnStepCompleted(stepResult, steps, tasks));
+        var progress = new Progress<StepResult>(stepResult => OnStepCompleted(stepResult, steps, tasks, pipelineTask));
 
         return await pipelineRunner.RunAsync(steps, context, progress);
     }
 
-    private static void OnStepCompleted(StepResult stepResult, List<DeployStep> steps, Dictionary<DeployStep, ProgressTask> tasks)
+    private static void OnStepCompleted(StepResult stepResult, List<DeployStep> steps, Dictionary<DeployStep, ProgressTask> tasks, ProgressTask pipelineTask)
     {
         var task = tasks[stepResult.Step];
         task.Value = 100;
         task.Description = DescribeStepStatus(stepResult);
+
+        pipelineTask.Increment(1);
 
         StartNextTask(stepResult, steps, tasks);
     }
