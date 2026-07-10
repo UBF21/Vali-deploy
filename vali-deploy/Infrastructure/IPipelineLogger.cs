@@ -4,6 +4,7 @@ namespace vali_deploy.Infrastructure;
 
 public interface IPipelineLogger
 {
-    void StartRun(string projectName, string subProjectName);
+    void StartRun(string projectName, string subProjectName, string environmentName);
     void WriteStep(StepResult stepResult);
+    void FinishRun(PipelineResult result);
 }
