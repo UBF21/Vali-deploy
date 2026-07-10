@@ -348,7 +348,8 @@ public static class MenuManager
 
         var projectsToRemove = AnsiConsole.Prompt(
             new MultiSelectionPrompt<string>()
-                .Title("Select projects to remove (use spacebar to select, Enter to confirm)")
+                .Title(Presentation.Translator.T("Select projects to remove (use spacebar to select, Enter to confirm)"))
+                .UseConverter(Presentation.Translator.T)
                 .NotRequired()
                 .AddChoices(_projects.Keys.Append("[seagreen1]Back to Main Menu[/]"))
         );
@@ -421,7 +422,8 @@ public static class MenuManager
     {
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
-                .Title("Select a project to remove subprojects from")
+                .Title(Presentation.Translator.T("Select a project to remove subprojects from"))
+                .UseConverter(Presentation.Translator.T)
                 .AddChoices(_projects.Keys.Append("[seagreen1]Back to Main Menu[/]"))
         );
     }
@@ -436,8 +438,10 @@ public static class MenuManager
     {
         var selectedSubProjects = AnsiConsole.Prompt(
             new MultiSelectionPrompt<string>()
-                .Title(
-                    $"Select subprojects to remove from project '{projectName}' (use spacebar to select, Enter to confirm)")
+                .Title(string.Format(
+                    Presentation.Translator.T("Select subprojects to remove from project '{0}' (use spacebar to select, Enter to confirm)"),
+                    projectName))
+                .UseConverter(Presentation.Translator.T)
                 .NotRequired()
                 .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[seagreen1]Cancel[/]"))
         );
@@ -479,7 +483,8 @@ public static class MenuManager
     {
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
-                .Title("Select a project")
+                .Title(Presentation.Translator.T("Select a project"))
+                .UseConverter(Presentation.Translator.T)
                 .AddChoices(_projects.Keys.Append("[seagreen1]Back to Main Menu[/]"))
         );
     }
@@ -533,7 +538,8 @@ public static class MenuManager
     {
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
-                .Title($"Select a subproject for project '{projectName}'")
+                .Title(string.Format(Presentation.Translator.T("Select a subproject for project '{0}'"), projectName))
+                .UseConverter(Presentation.Translator.T)
                 .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[seagreen1]Back to Projects Menu[/]"))
         );
     }
