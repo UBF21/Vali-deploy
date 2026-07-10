@@ -1357,7 +1357,7 @@ public static class MenuManager
 
             var projectName = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
-                    .Title("Select a project to manage publish arguments")
+                    .Translated("Select a project to manage publish arguments")
                     .AddChoices(_projects.Keys.Append("[seagreen1]Back to Main Menu[/]"))
             );
 
@@ -1391,7 +1391,7 @@ public static class MenuManager
 
             var subProjectName = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
-                    .Title($"Select a subproject in '{projectName}' to manage publish arguments")
+                    .TranslatedFormat("Select a subproject in '{0}' to manage publish arguments", projectName)
                     .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[seagreen1]Back to Projects[/]"))
             );
 
@@ -1492,7 +1492,7 @@ public static class MenuManager
     {
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
-                .Title("What do you want to do?")
+                .Translated("What do you want to do?")
                 .AddChoices("Add Publish Arg", "Remove Publish Args", "Toggle Zip Publish Output",
                     "[seagreen1]Back to Subprojects[/]")
         );
@@ -1575,7 +1575,7 @@ public static class MenuManager
 
         var argsToRemove = AnsiConsole.Prompt(
             new MultiSelectionPrompt<string>()
-                .Title("Select publish args to remove (use space-bar to select, Enter to confirm)")
+                .Translated("Select publish args to remove (use space-bar to select, Enter to confirm)")
                 .NotRequired()
                 .AddChoices(subProject.PublishArgs.Append("[seagreen1]Cancel[/]"))
         );
