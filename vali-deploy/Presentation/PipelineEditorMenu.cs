@@ -49,6 +49,8 @@ public static class PipelineEditorMenu
         {
             var steps = subProject.PipelinesByEnvironment[environmentName];
             AnsiConsole.Clear();
+            ShellRenderer.DrawHeader(config.Projects, breadcrumb: $"{subProject.Name} · {environmentName}");
+
             var table = new Table().AddColumns("#", "Step");
             foreach (var row in steps.Select((s, i) => new[] { (i + 1).ToString(), s.Name }))
             {
