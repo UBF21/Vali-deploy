@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Spectre.Console;
 using vali_deploy.Models;
@@ -127,8 +128,8 @@ public static class UpdaterManager
         }
     }
 
-    // Método que descarga el ZIP, lo extrae y reemplaza el ejecutable actual.
-    public static async Task DownloadAndInstallAsync(string downloadUrl, string newVersion)
+    // Método que descarga el ZIP, verifica su checksum, lo extrae y reemplaza el ejecutable actual.
+    public static async Task DownloadAndInstallAsync(string downloadUrl, string newVersion, string? expectedSha256 = null)
     {
         // Obtener la carpeta donde está el ejecutable actual.
         string currentExePath = Process.GetCurrentProcess().MainModule?.FileName ?? string.Empty;
@@ -141,15 +142,34 @@ public static class UpdaterManager
         string tempExtractPath = Path.Combine(exeDirectory, "TempUpdate");
 
         // Estado de descarga.
+        byte[] downloadedData = Array.Empty<byte>();
         await AnsiConsole.Status()
             .Spinner(Spinner.Known.Dots12)
             .StartAsync("Downloading new version...", async ctx =>
             {
                 using HttpClient client = new HttpClient();
-                byte[] data = await client.GetByteArrayAsync(downloadUrl);
-                await File.WriteAllBytesAsync(zipPath, data);
+                downloadedData = await client.GetByteArrayAsync(downloadUrl);
+                await File.WriteAllBytesAsync(zipPath, downloadedData);
             });
         AnsiConsole.MarkupLine("[green]:check_mark: Download completed.[/]");
+
+        if (!string.IsNullOrEmpty(expectedSha256))
+        {
+            var actualHash = Convert.ToHexString(SHA256.HashData(downloadedData)).ToLowerInvariant();
+            if (!string.Equals(actualHash, expectedSha256, StringComparison.OrdinalIgnoreCase))
+            {
+                AnsiConsole.MarkupLine(
+                    $"[red]:cross_mark: Checksum verification failed. Expected {expectedSha256}, got {actualHash}. Aborting update.[/]");
+                File.Delete(zipPath);
+                return;
+            }
+
+            AnsiConsole.MarkupLine("[green]:check_mark: Checksum verified.[/]");
+        }
+        else
+        {
+            AnsiConsole.MarkupLine("[yellow]:warning: No checksum available for this release — skipping integrity verification.[/]");
+        }
 
         // Estado de extracción.
         await AnsiConsole.Status()

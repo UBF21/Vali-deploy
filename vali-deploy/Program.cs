@@ -40,7 +40,11 @@ try
             string osIdentifier = Util.GetOsIdentifier();
             if (updateInfo.Downloads.TryGetValue(osIdentifier, out string? downloadUrl))
             {
-                if (downloadUrl != null) await UpdaterManager.DownloadAndInstallAsync(downloadUrl,updateInfo.Version);
+                if (downloadUrl != null)
+                {
+                    updateInfo.Checksums.TryGetValue(osIdentifier, out string? expectedChecksum);
+                    await UpdaterManager.DownloadAndInstallAsync(downloadUrl, updateInfo.Version, expectedChecksum);
+                }
                 UpdaterManager.LaunchNewVersionAndExit();
             }
             else
