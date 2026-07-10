@@ -172,4 +172,38 @@ public class ProjectRepositoryTests
 
         Assert.Equal("already-configured", reloaded.Projects["proj"].SubProjects[0].DockerRegistry!.Username);
     }
+
+    [Fact]
+    public void Load_does_not_null_out_DockerHubUser_when_DockerRegistry_already_migrated()
+    {
+        // Reproduce el escenario donde MenuManager (flujo legacy "Push to Docker Hub", hasta Task 8)
+        // repuebla DockerHubUser después de una migración previa — Load() no debe volver a pisarlo,
+        // porque MigrateDockerHubUserToRegistry ya no actúa cuando DockerRegistry != null.
+        var configPath = NewTempConfigPath();
+        var config = new DeployConfig
+        {
+            Projects = new Dictionary<string, Project>
+            {
+                ["proj"] = new Project
+                {
+                    Path = "/tmp/proj",
+                    SubProjects = new List<SubProject>
+                    {
+                        new()
+                        {
+                            Name = "api",
+                            DockerRegistry = new DockerRegistry { Host = "", Username = "old-migrated-user" },
+                            DockerHubUser = "user-set-again-by-legacy-flow"
+                        }
+                    }
+                }
+            }
+        };
+        File.WriteAllText(configPath, JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true }));
+
+        var repository = new ProjectRepository(configPath);
+        var reloaded = repository.Load();
+
+        Assert.Equal("user-set-again-by-legacy-flow", reloaded.Projects["proj"].SubProjects[0].DockerHubUser);
+    }
 }

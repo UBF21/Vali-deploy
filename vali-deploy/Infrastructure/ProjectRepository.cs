@@ -65,9 +65,8 @@ public class ProjectRepository : IProjectRepository
                 if (subProject.DockerRegistry == null && !string.IsNullOrEmpty(subProject.DockerHubUser))
                 {
                     subProject.DockerRegistry = new DockerRegistry { Host = "", Username = subProject.DockerHubUser };
+                    subProject.DockerHubUser = null;
                 }
-
-                subProject.DockerHubUser = null;
             }
         }
     }
