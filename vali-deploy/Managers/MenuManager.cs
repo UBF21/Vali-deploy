@@ -1020,7 +1020,7 @@ public static class MenuManager
 
             var projectName = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
-                    .Title("Select a project with Docker subprojects")
+                    .Translated("Select a project with Docker subprojects")
                     .AddChoices(dockerProjects.Keys.Append("[seagreen1]Back to Main Menu[/]"))
             );
 
@@ -1054,7 +1054,7 @@ public static class MenuManager
 
             var subProjectName = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
-                    .Title($"Select a Docker subproject in '{projectName}'")
+                    .TranslatedFormat("Select a Docker subproject in '{0}'", projectName)
                     .AddChoices(dockerSubProjects.Select(sp => sp.Name).Append("[seagreen1]Back to Projects[/]"))
             );
 
@@ -1155,7 +1155,7 @@ public static class MenuManager
     {
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
-                .Title("What do you want to do?")
+                .Translated("What do you want to do?")
                 .AddChoices("Add Docker Arg", "Remove Docker Args", "[seagreen1]Back to Subprojects[/]")
         );
     }
@@ -1182,7 +1182,7 @@ public static class MenuManager
 
             var type = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
-                    .Title("Select argument type:")
+                    .Translated("Select argument type:")
                     .AddChoices("Build Arg", "Run Arg", "[seagreen1]Back[/]")
             );
 
@@ -1272,7 +1272,7 @@ public static class MenuManager
         Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
         var type = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
-                .Title("Select argument type to remove:")
+                .Translated("Select argument type to remove:")
                 .AddChoices("Build Args", "Run Args", "[seagreen1]Cancel[/]")
         );
 
@@ -1289,7 +1289,7 @@ public static class MenuManager
 
             var argsToRemove = AnsiConsole.Prompt(
                 new MultiSelectionPrompt<string>()
-                    .Title("Select build args to remove (use spacebar to select, Enter to confirm)")
+                    .Translated("Select build args to remove (use spacebar to select, Enter to confirm)")
                     .NotRequired()
                     .AddChoices(subProject.DockerBuildArgs.Append("[seagreen1]Cancel[/]"))
             );
@@ -1316,7 +1316,7 @@ public static class MenuManager
 
             var argsToRemove = AnsiConsole.Prompt(
                 new MultiSelectionPrompt<string>()
-                    .Title("Select run args to remove (use spacebar to select, Enter to confirm)")
+                    .Translated("Select run args to remove (use spacebar to select, Enter to confirm)")
                     .NotRequired()
                     .AddChoices(subProject.DockerRunArgs.Append("[seagreen1]Cancel[/]"))
             );
