@@ -770,3 +770,468 @@ Verificar: ningún panel ni el `Grid` del header se corta abruptamente ni tira e
 
 Run: `grep -rn "ChartManager\|_barChart\|GetRandomColor\|chartreuse3_1" vali-deploy --include=*.cs`
 Expected: sin salida (0 ocurrencias en código fuente — puede haber matches dentro de `vali-deploy/bin/`/`obj/`, que no cuentan; si aparecen, son artefactos de build viejos, no código fuente).
+
+---
+
+## Addendum (post-review): gaps de scope encontrados en el review holístico de Tasks 1-8
+
+El review final detectó 2 gaps reales frente al goal del plan ("shell visual coherente... usado tanto en el menú raíz como en los submenús"):
+
+1. **Header parpadea en 7 sub-flujos de edición** — `AnsiConsole.Clear()` sin `ShellRenderer.DrawHeader()` posterior, verificado línea por línea contra el código actual (no son 7 arbitrarios, son estos 7 sitios exactos): `AddFileToOmitFromPublishAsync`, `RemoveFileToOmitFromPublishAsync`, `AddDockerArgAsync`, `RemoveDockerArgsAsync`, `AddPublishArgAsync`, `RemovePublishArgsAsync` (todos en `MenuManager.cs`) y `EditStepArgs` (`PipelineEditorMenu.cs`). Durante esos sub-flujos el header desaparece por completo y solo reaparece cuando el loop padre vuelve a dibujar `DisplayOmitFilesFromPublish`/`DisplayDockerArgs`/`DisplayPublishArgs`.
+2. **Pantallas de ejecución real nunca migradas** — `ExecuteSubProjectPipelineAsync` (prompt "Elegí el entorno a desplegar" + `PipelineExecutionView.RunAsync`) y las 3 ramas Docker Build/Docker Run/Push to Docker Hub de `ExecuteCommandSubProject`, ambos en `MenuManager.cs`, ejecutan sin `Clear()`/header propio — heredan lo que haya quedado en pantalla de la selección anterior.
+
+---
+
+### Task 9: Eliminar el parpadeo del header en los 7 sub-flujos de edición
+
+**Depends on:** Task 2 (usa `ShellRenderer.DrawHeader`)
+
+**Files:**
+- Modify: `vali-deploy/Managers/MenuManager.cs`
+- Modify: `vali-deploy/Presentation/PipelineEditorMenu.cs`
+
+En `MenuManager.cs` los 6 sitios usan el campo estático `_projects` (ya en scope de clase, no requiere parámetro nuevo). En `PipelineEditorMenu.cs`, `EditStepArgs` no tiene `config`/breadcrumb en scope — se agregan como parámetros.
+
+- [ ] **Step 1: `AddFileToOmitFromPublishAsync`**
+
+Reemplazar:
+
+```csharp
+    private static async Task AddFileToOmitFromPublishAsync(SubProject subProject)
+    {
+        bool addingFiles = true;
+        bool firstFileAdded = false;
+
+        AnsiConsole.Clear();
+        AnsiConsole.MarkupLine("[yellow]Adding files to omit (type 'done' to finish)[/]");
+        while (addingFiles)
+        {
+            if (firstFileAdded)
+            {
+                AnsiConsole.Clear();
+                AnsiConsole.MarkupLine("[yellow]Adding files to omit (type 'done' to finish)[/]");
+            }
+```
+
+por:
+
+```csharp
+    private static async Task AddFileToOmitFromPublishAsync(SubProject subProject)
+    {
+        bool addingFiles = true;
+        bool firstFileAdded = false;
+
+        AnsiConsole.Clear();
+        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
+        AnsiConsole.MarkupLine("[yellow]Adding files to omit (type 'done' to finish)[/]");
+        while (addingFiles)
+        {
+            if (firstFileAdded)
+            {
+                AnsiConsole.Clear();
+                Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
+                AnsiConsole.MarkupLine("[yellow]Adding files to omit (type 'done' to finish)[/]");
+            }
+```
+
+- [ ] **Step 2: `RemoveFileToOmitFromPublishAsync`**
+
+Reemplazar:
+
+```csharp
+    private static Task RemoveFileToOmitFromPublishAsync(SubProject subProject)
+    {
+        AnsiConsole.Clear();
+        if (subProject.OmitFiles.Count == 0)
+```
+
+por:
+
+```csharp
+    private static Task RemoveFileToOmitFromPublishAsync(SubProject subProject)
+    {
+        AnsiConsole.Clear();
+        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
+        if (subProject.OmitFiles.Count == 0)
+```
+
+- [ ] **Step 3: `AddDockerArgAsync`**
+
+Reemplazar:
+
+```csharp
+    private static async Task AddDockerArgAsync(SubProject subProject)
+    {
+        bool addingArgs = true;
+        while (addingArgs)
+        {
+            AnsiConsole.Clear();
+            AnsiConsole.MarkupLine("[yellow]Adding a Docker argument[/]");
+            AnsiConsole.WriteLine();
+```
+
+por:
+
+```csharp
+    private static async Task AddDockerArgAsync(SubProject subProject)
+    {
+        bool addingArgs = true;
+        while (addingArgs)
+        {
+            AnsiConsole.Clear();
+            Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
+            AnsiConsole.MarkupLine("[yellow]Adding a Docker argument[/]");
+            AnsiConsole.WriteLine();
+```
+
+Reemplazar (el segundo `Clear()` dentro del loop interno, tras el primer argumento):
+
+```csharp
+                if (firstArgAdded)
+                {
+                    AnsiConsole.Clear(); // Limpia la pantalla después del primer argumento
+                    AnsiConsole.MarkupLine($"[yellow]Adding {type.ToLower()}s (type 'done' to finish)[/]");
+                }
+```
+
+por:
+
+```csharp
+                if (firstArgAdded)
+                {
+                    AnsiConsole.Clear(); // Limpia la pantalla después del primer argumento
+                    Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
+                    AnsiConsole.MarkupLine($"[yellow]Adding {type.ToLower()}s (type 'done' to finish)[/]");
+                }
+```
+
+- [ ] **Step 4: `RemoveDockerArgsAsync`**
+
+Reemplazar:
+
+```csharp
+    private static Task RemoveDockerArgsAsync(SubProject subProject)
+    {
+        AnsiConsole.Clear();
+        var type = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("Select argument type to remove:")
+```
+
+por:
+
+```csharp
+    private static Task RemoveDockerArgsAsync(SubProject subProject)
+    {
+        AnsiConsole.Clear();
+        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
+        var type = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("Select argument type to remove:")
+```
+
+- [ ] **Step 5: `AddPublishArgAsync`**
+
+Reemplazar:
+
+```csharp
+    private static async Task AddPublishArgAsync(SubProject subProject)
+    {
+        bool addingArgs = true;
+        bool firstArgAdded = false;
+
+        AnsiConsole.Clear();
+        AnsiConsole.MarkupLine("[yellow]Adding publish args (type 'done' to finish)[/]");
+        while (addingArgs)
+        {
+            if (firstArgAdded)
+            {
+                AnsiConsole.Clear();
+                AnsiConsole.MarkupLine("[yellow]Adding publish args (type 'done' to finish)[/]");
+            }
+```
+
+por:
+
+```csharp
+    private static async Task AddPublishArgAsync(SubProject subProject)
+    {
+        bool addingArgs = true;
+        bool firstArgAdded = false;
+
+        AnsiConsole.Clear();
+        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
+        AnsiConsole.MarkupLine("[yellow]Adding publish args (type 'done' to finish)[/]");
+        while (addingArgs)
+        {
+            if (firstArgAdded)
+            {
+                AnsiConsole.Clear();
+                Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
+                AnsiConsole.MarkupLine("[yellow]Adding publish args (type 'done' to finish)[/]");
+            }
+```
+
+- [ ] **Step 6: `RemovePublishArgsAsync`**
+
+Reemplazar:
+
+```csharp
+    private static async Task RemovePublishArgsAsync(SubProject subProject)
+    {
+        AnsiConsole.Clear();
+        if (subProject.PublishArgs == null || subProject.PublishArgs.Count == 0)
+```
+
+por:
+
+```csharp
+    private static async Task RemovePublishArgsAsync(SubProject subProject)
+    {
+        AnsiConsole.Clear();
+        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
+        if (subProject.PublishArgs == null || subProject.PublishArgs.Count == 0)
+```
+
+- [ ] **Step 7: `EditStepArgs` — agregar `projects`/`breadcrumb` como parámetros**
+
+En `vali-deploy/Presentation/PipelineEditorMenu.cs`, reemplazar el call-site:
+
+```csharp
+                case "Edit Step Args":
+                    var toEdit = AnsiConsole.Prompt(
+                        new SelectionPrompt<DeployStep>().Title("Editar Args de cuál paso?").UseConverter(s => s.Name).AddChoices(steps));
+                    EditStepArgs(toEdit);
+                    repository.Save(config);
+                    break;
+```
+
+por:
+
+```csharp
+                case "Edit Step Args":
+                    var toEdit = AnsiConsole.Prompt(
+                        new SelectionPrompt<DeployStep>().Title("Editar Args de cuál paso?").UseConverter(s => s.Name).AddChoices(steps));
+                    EditStepArgs(toEdit, config.Projects, $"{subProject.Name} · {environmentName}");
+                    repository.Save(config);
+                    break;
+```
+
+Reemplazar la firma y el `Clear()` del método:
+
+```csharp
+    private static void EditStepArgs(DeployStep step)
+    {
+        if (step.Args.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]Este step no tiene Args definidos.[/]");
+            return;
+        }
+
+        while (true)
+        {
+            AnsiConsole.Clear();
+            var table = new Table().AddColumns("Key", "Value");
+```
+
+por:
+
+```csharp
+    private static void EditStepArgs(DeployStep step, IReadOnlyDictionary<string, Domain.Project> projects, string breadcrumb)
+    {
+        if (step.Args.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]Este step no tiene Args definidos.[/]");
+            return;
+        }
+
+        while (true)
+        {
+            AnsiConsole.Clear();
+            ShellRenderer.DrawHeader(projects, breadcrumb: breadcrumb);
+            var table = new Table().AddColumns("Key", "Value");
+```
+
+- [ ] **Step 8: Verificar que compila**
+
+Run: `dotnet build vali-deploy/vali-deploy.csproj`
+Expected: `Build succeeded.`
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add vali-deploy/Managers/MenuManager.cs vali-deploy/Presentation/PipelineEditorMenu.cs
+git commit -m "fix(presentation): mostrar header persistente en los 7 sub-flujos de edicion"
+```
+
+---
+
+### Task 10: Migrar las pantallas de ejecución real (pipeline + Docker Build/Run/Push) a `ShellRenderer`
+
+**Depends on:** Task 2
+
+**Files:**
+- Modify: `vali-deploy/Managers/MenuManager.cs`
+
+- [ ] **Step 1: `ExecuteSubProjectPipelineAsync` — header antes de "Elegí el entorno" y antes de ejecutar el pipeline**
+
+Reemplazar:
+
+```csharp
+    private static async Task ExecuteSubProjectPipelineAsync(Project project, SubProject subProject, string projectName, Domain.DeployConfig config)
+    {
+        var environmentName = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("Elegí el entorno a desplegar:")
+                .AddChoices(subProject.PipelinesByEnvironment.Keys));
+
+        var environment = config.Environments.First(e => e.Name == environmentName);
+        var steps = subProject.PipelinesByEnvironment[environmentName];
+
+        if (steps.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]El pipeline de este entorno no tiene steps. Andá a 'Edit Pipeline' para agregar alguno.[/]");
+            PauseForUserInput();
+            return;
+        }
+```
+
+por:
+
+```csharp
+    private static async Task ExecuteSubProjectPipelineAsync(Project project, SubProject subProject, string projectName, Domain.DeployConfig config)
+    {
+        AnsiConsole.Clear();
+        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: $"{projectName} · {subProject.Name}");
+
+        var environmentName = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("Elegí el entorno a desplegar:")
+                .AddChoices(subProject.PipelinesByEnvironment.Keys));
+
+        var environment = config.Environments.First(e => e.Name == environmentName);
+        var steps = subProject.PipelinesByEnvironment[environmentName];
+
+        if (steps.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]El pipeline de este entorno no tiene steps. Andá a 'Edit Pipeline' para agregar alguno.[/]");
+            PauseForUserInput();
+            return;
+        }
+
+        AnsiConsole.Clear();
+        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: $"{projectName} · {subProject.Name} · {environmentName}");
+```
+
+(El segundo `Clear()`+header, justo antes de ejecutar, deja el breadcrumb con el entorno ya elegido visible durante todo el `PipelineExecutionView.RunAsync` — que solo dibuja la tabla de progreso/resumen debajo, nunca su propio header.)
+
+- [ ] **Step 2: Header antes de las 3 ramas Docker en `ExecuteCommandSubProject`**
+
+Reemplazar:
+
+```csharp
+        var action = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title($"What do you want to do with subproject '{subProject.Name}'?")
+                .AddChoices(choices)
+        );
+
+        switch (action)
+        {
+            case "Generate Microsoft publish":
+                AnsiConsole.MarkupLine(
+                    $"[green]Running normal publish for subproject '{Markup.Escape(subProject.Name)}' in project '{Markup.Escape(projectName)}'...[/]");
+                await CommandExecutor.RunCommandsAsync(projectName, subProject.Name, subProjectPathFull, subProject);
+                PauseForUserInput();
+                break;
+
+            case "Edit Pipeline":
+                await Presentation.PipelineEditorMenu.StartAsync(CompositionRoot.CreateProjectRepository(), projectName, subProject);
+                break;
+
+            case "Docker Build":
+                if (!string.IsNullOrEmpty(subProject.DockerfilePath))
+                {
+                    string dockerfileFullPath = Path.Combine(subProjectPathFull, subProject.DockerfilePath);
+                    AnsiConsole.MarkupLine(
+                        $"[green]Building Docker image for subproject '{Markup.Escape(subProject.Name)}'...[/]");
+```
+
+por:
+
+```csharp
+        var action = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title($"What do you want to do with subproject '{subProject.Name}'?")
+                .AddChoices(choices)
+        );
+
+        if (action is "Docker Build" or "Docker Run" or "Push to Docker Hub")
+        {
+            AnsiConsole.Clear();
+            Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: $"{projectName} · {subProject.Name}");
+        }
+
+        switch (action)
+        {
+            case "Generate Microsoft publish":
+                AnsiConsole.MarkupLine(
+                    $"[green]Running normal publish for subproject '{Markup.Escape(subProject.Name)}' in project '{Markup.Escape(projectName)}'...[/]");
+                await CommandExecutor.RunCommandsAsync(projectName, subProject.Name, subProjectPathFull, subProject);
+                PauseForUserInput();
+                break;
+
+            case "Edit Pipeline":
+                await Presentation.PipelineEditorMenu.StartAsync(CompositionRoot.CreateProjectRepository(), projectName, subProject);
+                break;
+
+            case "Docker Build":
+                if (!string.IsNullOrEmpty(subProject.DockerfilePath))
+                {
+                    string dockerfileFullPath = Path.Combine(subProjectPathFull, subProject.DockerfilePath);
+                    AnsiConsole.MarkupLine(
+                        $"[green]Building Docker image for subproject '{Markup.Escape(subProject.Name)}'...[/]");
+```
+
+(Un solo `if` antes del `switch` cubre las 3 ramas Docker sin duplicar el `Clear()`+header en cada `case` — `_projects` es el campo estático de la clase, igual que en el resto de `MenuManager.cs`.)
+
+- [ ] **Step 3: Verificar que compila**
+
+Run: `dotnet build vali-deploy/vali-deploy.csproj`
+Expected: `Build succeeded.`
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add vali-deploy/Managers/MenuManager.cs
+git commit -m "feat(presentation): agregar header persistente a las pantallas de ejecucion (pipeline y Docker)"
+```
+
+---
+
+### Task 11: Verificación manual end-to-end del addendum
+
+**Depends on:** Tasks 9-10
+
+- [ ] **Step 1: Build completo**
+
+Run: `dotnet build vali-deploy.sln`
+Expected: `Build succeeded.`, 0 errores.
+
+- [ ] **Step 2: Recorrido funcional de los 7 sub-flujos (Task 9)**
+
+Run: `dotnet run --project vali-deploy/vali-deploy.csproj`
+
+Entrar a cada uno de los 7 flujos (Add/Remove de omit-files, Add/Remove de Docker args, Add/Remove de publish args, Edit Step Args de un pipeline) y verificar que el header (marca + versión + breadcrumb) permanece visible en todo momento — nunca desaparece entre el `Clear()` de entrada y la primera línea de contenido.
+
+- [ ] **Step 3: Recorrido funcional de las pantallas de ejecución (Task 10)**
+
+Ejecutar un pipeline de un subproyecto con `PipelinesByEnvironment` configurado — verificar que el header aparece antes del prompt "Elegí el entorno a desplegar" y se actualiza con el breadcrumb del entorno elegido antes de que arranque `PipelineExecutionView` (barras de progreso).
+
+Si hay un subproyecto con `DockerfilePath` configurado, ejecutar Docker Build (o Docker Run/Push si hay imagen disponible) y verificar que el header aparece antes del mensaje "Building Docker image...".
+
+- [ ] **Step 4: Confirmar que no quedó código muerto ni breadcrumbs rotos**
+
+Run: `grep -rn "AnsiConsole.Clear" vali-deploy/Managers/MenuManager.cs vali-deploy/Presentation/PipelineEditorMenu.cs --include=*.cs`
+
+Revisar manualmente que cada `Clear()` restante en estos dos archivos tiene un `DrawHeader`/`DisplayMainMenu` inmediatamente después (los únicos `Clear()` sin header esperado son los del loop principal de `MenuManager` que llaman a `DisplayMainMenu()` en la misma línea siguiente, ya cubiertos desde Task 4).
