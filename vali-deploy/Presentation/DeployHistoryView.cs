@@ -87,7 +87,7 @@ public static class DeployHistoryView
                 run.SubProjectName,
                 run.EnvironmentName,
                 run.Success ? "[green]OK[/]" : "[red]FALLÓ[/]",
-                run.TotalDuration.ToString(@"mm\:ss"));
+                run.TotalDuration.ToString(@"hh\:mm\:ss"));
         }
 
         AnsiConsole.Write(table);
