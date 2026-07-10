@@ -788,7 +788,7 @@ public static class MenuManager
                 .AddChoices(choices)
         );
 
-        if (_dockerActions.Contains(action))
+        if (action == "Generate Microsoft publish" || _dockerActions.Contains(action))
         {
             AnsiConsole.Clear();
             Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: $"{projectName} · {subProject.Name}");
