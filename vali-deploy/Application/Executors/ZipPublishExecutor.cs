@@ -87,7 +87,9 @@ public class ZipPublishExecutor : IStepExecutor
         var releaseFolder = Path.Combine(projectPath, "bin", "Release");
         if (!Directory.Exists(releaseFolder)) return null;
 
-        return Directory.EnumerateDirectories(releaseFolder, "publish", SearchOption.AllDirectories).FirstOrDefault();
+        return Directory.EnumerateDirectories(releaseFolder, "publish", SearchOption.AllDirectories)
+            .OrderBy(dir => dir.Count(c => c == Path.DirectorySeparatorChar))
+            .FirstOrDefault();
     }
 
     private static List<string> ParseOmitFiles(DeployStep step)
@@ -105,9 +107,9 @@ public class ZipPublishExecutor : IStepExecutor
         using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
         foreach (var filePath in Directory.EnumerateFiles(publishFolder, "*", SearchOption.AllDirectories))
         {
-            var relativePath = Path.GetRelativePath(publishFolder, filePath);
+            var relativePath = Path.GetRelativePath(publishFolder, filePath).Replace('\\', '/');
             if (omitFiles.Contains(relativePath, StringComparer.OrdinalIgnoreCase)) continue;
-            zip.CreateEntryFromFile(filePath, relativePath.Replace('\\', '/'));
+            zip.CreateEntryFromFile(filePath, relativePath);
         }
 
         return zipPath;
