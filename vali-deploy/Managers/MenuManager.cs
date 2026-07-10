@@ -875,6 +875,13 @@ public static class MenuManager
             Environment = LocalEnvironment
         };
 
+        if (steps.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]No hay steps para ejecutar.[/]");
+            PauseForUserInput();
+            return;
+        }
+
         var pipelineRunner = CompositionRoot.CreatePipelineRunner();
         var logger = CompositionRoot.CreatePipelineLogger();
         logger.StartRun(projectName, subProject.Name);
