@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using vali_deploy.Domain;
@@ -6,8 +7,6 @@ using vali_deploy.Infrastructure;
 
 namespace vali_deploy.Application.Executors;
 
-// OmitFiles y compresión a .zip son deferred (ver Task 31 del plan) — pendiente decisión
-// de diseño sobre si van como Args de este step o un StepType separado.
 public class ZipPublishExecutor : IStepExecutor
 {
     private readonly IProcessRunner _processRunner;
@@ -39,6 +38,17 @@ public class ZipPublishExecutor : IStepExecutor
                 return FailureResult(step, run, combinedOutput.ToString(), stopwatch.Elapsed);
             }
         }
+
+        var publishFolder = FindPublishFolder(context.ProjectPath);
+        if (publishFolder == null)
+        {
+            stopwatch.Stop();
+            return PublishFolderNotFoundResult(step, combinedOutput.ToString(), stopwatch.Elapsed);
+        }
+
+        var omitFiles = ParseOmitFiles(step);
+        var zipPath = CreateZip(publishFolder, context.SubProjectName, omitFiles);
+        combinedOutput.AppendLine($"Comprimido en: {zipPath}");
 
         stopwatch.Stop();
         return SuccessResult(step, combinedOutput.ToString(), stopwatch.Elapsed);
@@ -72,31 +82,57 @@ public class ZipPublishExecutor : IStepExecutor
         return new[] { "rm -rf bin; rm -rf obj" };
     }
 
+    private static string? FindPublishFolder(string projectPath)
+    {
+        var releaseFolder = Path.Combine(projectPath, "bin", "Release");
+        if (!Directory.Exists(releaseFolder)) return null;
+
+        return Directory.EnumerateDirectories(releaseFolder, "publish", SearchOption.AllDirectories).FirstOrDefault();
+    }
+
+    private static List<string> ParseOmitFiles(DeployStep step)
+    {
+        var raw = step.Args.GetValueOrDefault("OmitFiles", "");
+        return string.IsNullOrEmpty(raw) ? new List<string>() : raw.Split('|').ToList();
+    }
+
+    private static string CreateZip(string publishFolder, string subProjectName, List<string> omitFiles)
+    {
+        var timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
+        var parentFolder = Directory.GetParent(publishFolder)?.FullName ?? publishFolder;
+        var zipPath = Path.Combine(parentFolder, $"{subProjectName}-{timestamp}.zip");
+
+        using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
+        foreach (var filePath in Directory.EnumerateFiles(publishFolder, "*", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(publishFolder, filePath);
+            if (omitFiles.Contains(relativePath, StringComparer.OrdinalIgnoreCase)) continue;
+            zip.CreateEntryFromFile(filePath, relativePath.Replace('\\', '/'));
+        }
+
+        return zipPath;
+    }
+
     private static StepResult PathNotFoundResult(DeployStep step, string path, TimeSpan duration) => new()
     {
-        Step = step,
-        Success = false,
-        ExitCode = -1,
-        Error = $"El path del proyecto no existe: {path}",
+        Step = step, Success = false, ExitCode = -1,
+        Error = $"El path del proyecto no existe: {path}", Duration = duration
+    };
+
+    private static StepResult PublishFolderNotFoundResult(DeployStep step, string output, TimeSpan duration) => new()
+    {
+        Step = step, Success = false, ExitCode = -1,
+        Output = output, Error = "No se encontró la carpeta 'publish' dentro de bin/Release tras el build.",
         Duration = duration
     };
 
     private static StepResult FailureResult(DeployStep step, ProcessRunResult run, string output, TimeSpan duration) => new()
     {
-        Step = step,
-        Success = false,
-        ExitCode = run.ExitCode,
-        Output = output,
-        Error = run.StdErr,
-        Duration = duration
+        Step = step, Success = false, ExitCode = run.ExitCode, Output = output, Error = run.StdErr, Duration = duration
     };
 
     private static StepResult SuccessResult(DeployStep step, string output, TimeSpan duration) => new()
     {
-        Step = step,
-        Success = true,
-        ExitCode = 0,
-        Output = output,
-        Duration = duration
+        Step = step, Success = true, ExitCode = 0, Output = output, Duration = duration
     };
 }

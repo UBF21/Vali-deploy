@@ -41,12 +41,14 @@ public class PipelineTemplateFactory
         return $"{prefix}/{imageTag}";
     }
 
-    public List<DeployStep> CreatePublishZipTemplate(string projectName, string subProjectName)
+    public List<DeployStep> CreatePublishZipTemplate(string projectName, string subProjectName, List<string>? omitFiles = null)
     {
+        var omitFilesArg = omitFiles is { Count: > 0 } ? string.Join("|", omitFiles) : "";
+
         return new List<DeployStep>
         {
             new() { Type = StepType.GitCheckout, Name = "Checkout" },
-            new() { Type = StepType.ZipPublishOutput, Name = "Build, publish y comprimir output" },
+            new() { Type = StepType.ZipPublishOutput, Name = "Build, publish y comprimir output", Args = { ["OmitFiles"] = omitFilesArg } },
             new() { Type = StepType.CopyToRemote, Name = "Copiar zip al remoto" },
             new() { Type = StepType.SshCommand, Name = "Extraer zip", Args = { ["Command"] = "" } },
             new() { Type = StepType.SshCommand, Name = "Reiniciar servicio/IIS pool", Args = { ["Command"] = "" } }

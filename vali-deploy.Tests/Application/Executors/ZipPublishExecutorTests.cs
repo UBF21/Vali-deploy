@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using vali_deploy.Application;
 using vali_deploy.Application.Executors;
 using vali_deploy.Domain;
@@ -7,9 +8,9 @@ namespace vali_deploy.Tests.Application.Executors;
 
 public class ZipPublishExecutorTests
 {
-    private static StepExecutionContext Context(string path) => new()
+    private static StepExecutionContext Context(string projectPath, string subProjectName = "sub") => new()
     {
-        ProjectName = "proj", SubProjectName = "sub", ProjectPath = path,
+        ProjectName = "proj", SubProjectName = subProjectName, ProjectPath = projectPath,
         Environment = new DeployEnvironment { Name = "QA" }
     };
 
@@ -72,7 +73,19 @@ public class ZipPublishExecutorTests
 
             processRunner
                 .Setup(p => p.RunAsync(It.IsAny<string>(), tempDir, null, null))
-                .Callback<string, string, IDictionary<string, string>?, string?>((cmd, _, _, _) => callOrder.Add(cmd))
+                .Callback<string, string, IDictionary<string, string>?, string?>((cmd, _, _, _) =>
+                {
+                    callOrder.Add(cmd);
+                    // "dotnet publish" real generaría bin/Release/.../publish en disco; como IProcessRunner
+                    // está mockeado (no ejecuta nada real), se simula ese efecto colateral para que la
+                    // verificación de postcondición que agrega Task 10 (ZipPublishExecutor ahora busca la
+                    // carpeta "publish" tras el build) encuentre algo. El resto del test -orden de comandos,
+                    // ausencia de "&"- no cambia.
+                    if (cmd.Contains("publish"))
+                    {
+                        Directory.CreateDirectory(Path.Combine(tempDir, "bin", "Release", "net7.0", "publish"));
+                    }
+                })
                 .ReturnsAsync(new ProcessRunResult(0, "", ""));
 
             var executor = new ZipPublishExecutor(processRunner.Object);
@@ -259,5 +272,79 @@ public class ZipPublishExecutorTests
             }
             Directory.Delete(tempDir, recursive: true);
         }
+    }
+
+    private static string CreateFakePublishFolder(out string projectPath)
+    {
+        projectPath = Directory.CreateTempSubdirectory().FullName;
+        var publishFolder = Path.Combine(projectPath, "bin", "Release", "net7.0", "publish");
+        Directory.CreateDirectory(publishFolder);
+        File.WriteAllText(Path.Combine(publishFolder, "app.dll"), "dummy");
+        File.WriteAllText(Path.Combine(publishFolder, "app.pdb"), "dummy");
+        return publishFolder;
+    }
+
+    private static Mock<IProcessRunner> SuccessfulBuildRunner(string projectPath)
+    {
+        var processRunner = new Mock<IProcessRunner>();
+        processRunner
+            .Setup(p => p.RunAsync(It.IsAny<string>(), projectPath, null, null))
+            .ReturnsAsync(new ProcessRunResult(0, "", ""));
+        return processRunner;
+    }
+
+    [Fact]
+    public async Task Creates_zip_alongside_publish_folder_without_deleting_it()
+    {
+        var publishFolder = CreateFakePublishFolder(out var projectPath);
+        var processRunner = SuccessfulBuildRunner(projectPath);
+
+        var executor = new ZipPublishExecutor(processRunner.Object);
+        var step = new DeployStep { Type = StepType.ZipPublishOutput, Name = "zip" };
+
+        var result = await executor.ExecuteAsync(step, Context(projectPath, "sub"));
+
+        Assert.True(result.Success);
+        Assert.True(Directory.Exists(publishFolder));
+        Assert.Equal(2, Directory.EnumerateFiles(publishFolder).Count());
+        var zipFiles = Directory.EnumerateFiles(Path.GetDirectoryName(publishFolder)!, "sub-*.zip").ToList();
+        Assert.Single(zipFiles);
+    }
+
+    [Fact]
+    public async Task Excludes_OmitFiles_from_the_zip_but_not_from_the_publish_folder()
+    {
+        var publishFolder = CreateFakePublishFolder(out var projectPath);
+        var processRunner = SuccessfulBuildRunner(projectPath);
+
+        var executor = new ZipPublishExecutor(processRunner.Object);
+        var step = new DeployStep { Type = StepType.ZipPublishOutput, Name = "zip", Args = { ["OmitFiles"] = "app.pdb" } };
+
+        await executor.ExecuteAsync(step, Context(projectPath, "sub"));
+
+        Assert.True(File.Exists(Path.Combine(publishFolder, "app.pdb")));
+
+        var zipPath = Directory.EnumerateFiles(Path.GetDirectoryName(publishFolder)!, "sub-*.zip").Single();
+        using var zip = ZipFile.OpenRead(zipPath);
+        Assert.Contains(zip.Entries, e => e.Name == "app.dll");
+        Assert.DoesNotContain(zip.Entries, e => e.Name == "app.pdb");
+    }
+
+    [Fact]
+    public async Task Returns_failure_when_a_build_command_fails()
+    {
+        var _ = CreateFakePublishFolder(out var projectPath);
+        var processRunner = new Mock<IProcessRunner>();
+        processRunner
+            .Setup(p => p.RunAsync(It.IsAny<string>(), projectPath, null, null))
+            .ReturnsAsync(new ProcessRunResult(1, "", "build error"));
+
+        var executor = new ZipPublishExecutor(processRunner.Object);
+        var step = new DeployStep { Type = StepType.ZipPublishOutput, Name = "zip" };
+
+        var result = await executor.ExecuteAsync(step, Context(projectPath));
+
+        Assert.False(result.Success);
+        Assert.Equal(1, result.ExitCode);
     }
 }
