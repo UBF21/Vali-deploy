@@ -62,25 +62,33 @@ public interface IPipelineLogger
   2. Construye un `DeployRunSummary` con los datos acumulados desde `StartRun` + `result.Success` + `result.Steps.Sum(s => s.Duration)` + `_currentLogFilePath`.
   3. Serializa el summary a una línea JSON y la appendea a `deploy-history.jsonl` (mismo `_logsDirectory`, `File.AppendAllText`).
 
-**`Infrastructure/IDeployHistoryRepository.cs`** + **`DeployHistoryRepository`** (nuevo):
+**`Domain/DeployHistoryQueryResult.cs`** (nuevo) + **`Infrastructure/IDeployHistoryRepository.cs`** + **`DeployHistoryRepository`** (nuevo):
 
 ```csharp
+public class DeployHistoryQueryResult
+{
+    public IReadOnlyList<DeployRunSummary> Runs { get; set; } = new List<DeployRunSummary>();
+    public int SkippedCorruptedLines { get; set; }
+}
+
 public interface IDeployHistoryRepository
 {
-    IReadOnlyList<DeployRunSummary> GetRecent(int count, string? projectFilter = null);
+    DeployHistoryQueryResult GetRecent(int count, string? projectFilter = null);
 }
 ```
 
+`GetRecent` devuelve un objeto de resultado (no una lista pelada) para poder exponer `SkippedCorruptedLines` sin un parámetro `out` — es el mecanismo concreto con el que se cumple el requisito de "no tragarse en silencio" las líneas corruptas (ver Manejo de errores).
+
 - Lee `deploy-history.jsonl` línea por línea.
-- Cada línea se deserializa individualmente (no todo el archivo como un solo JSON) — así una línea corrupta no invalida el resto. Las líneas que fallan deserialización se cuentan y se exponen (ver Manejo de errores).
+- Cada línea se deserializa individualmente (no todo el archivo como un solo JSON) — así una línea corrupta no invalida el resto. Las líneas que fallan deserialización (o deserializan a `null`) se cuentan en `SkippedCorruptedLines`; las líneas en blanco se ignoran sin contar como corruptas.
 - Ordena por `StartedAtUtc` descendente, filtra por `ProjectName == projectFilter` si no es null, corta a `count`.
-- Si el archivo no existe todavía, devuelve lista vacía (no excepción — es el estado esperado en un repo/instalación sin runs).
+- Si el archivo no existe todavía, devuelve `Runs` vacío y `SkippedCorruptedLines = 0` (no excepción — es el estado esperado en un repo/instalación sin runs).
 
 ### Presentation
 
-**`Presentation/DeployHistoryView.cs`** (nuevo):
+**`Presentation/DeployHistoryView.cs`** (nuevo, clase estática — mismo patrón que `Presentation/EnvironmentMenu.cs`):
 
-- `ShowAsync(IDeployHistoryRepository repository, IReadOnlyList<string> projectNames)`:
+- `static Task ShowAsync(IDeployHistoryRepository repository, IReadOnlyList<string> projectNames)`:
   1. `SelectionPrompt`: "Todos los proyectos" + un choice por cada nombre en `projectNames`.
   2. Llama `repository.GetRecent(30, filtro elegido o null)`.
   3. Si la lista viene vacía → `AnsiConsole.MarkupLine("[yellow]No hay runs registrados todavía.[/]")`, return.
@@ -96,7 +104,7 @@ public interface IDeployHistoryRepository
 - El cálculo del directorio de logs por default (`Documents/vali-deploy/logs`) se extrae a `Utils/Constants.DefaultLogsDirectory()` (o método equivalente), usado tanto por `PipelineLogger` como por `DeployHistoryRepository`, para que ambos apunten siempre a la misma carpeta sin duplicar la fórmula.
 - `CompositionRoot.CreateDeployHistoryRepository()` → `new DeployHistoryRepository()` usando ese mismo default.
 - `MenuManager.GetMainMenuOption()` (línea ~111): se agrega `"View Deploy History"` a `AddChoices(...)`, antes de `"[seagreen1]Exit[/]"`.
-- Nuevo `case "View Deploy History":` en el `switch (option)` de `MenuManager.StartAsync()` (línea ~38, junto a `"Manage Environments"`) que arma `new Presentation.DeployHistoryView().ShowAsync(CompositionRoot.CreateDeployHistoryRepository(), _projects.Keys.ToList())`.
+- Nuevo `case "View Deploy History":` en el `switch (option)` de `MenuManager.StartAsync()` (línea ~38, junto a `"Manage Environments"`) que llama `Presentation.DeployHistoryView.ShowAsync(CompositionRoot.CreateDeployHistoryRepository(), _projects.Keys.ToList())`.
 - `RunLocalPipelineAsync` (línea ~887): `logger.StartRun(projectName, subProject.Name, LocalEnvironment.Name)`; después del loop de `WriteStep` (línea ~895), agregar `logger.FinishRun(result)`.
 - `ExecuteSubProjectPipelineAsync` (línea ~945): `logger.StartRun(projectName, subProject.Name, environmentName)`; después del loop de `WriteStep` (línea ~953), agregar `logger.FinishRun(result)`.
 
