@@ -1213,10 +1213,12 @@ git commit -m "feat(presentation): agregar header persistente a las pantallas de
 
 **Depends on:** Tasks 9-10
 
-- [ ] **Step 1: Build completo**
+- [x] **Step 1: Build completo**
 
 Run: `dotnet build vali-deploy.sln`
 Expected: `Build succeeded.`, 0 errores.
+
+Verificado (`dotnet build vali-deploy/vali-deploy.csproj`): `Compilación correcta`, 0 errores, 4 warnings preexistentes en `Models/UpdateInfo.cs` sin relación con este addendum.
 
 - [ ] **Step 2: Recorrido funcional de los 7 sub-flujos (Task 9)**
 
@@ -1224,14 +1226,22 @@ Run: `dotnet run --project vali-deploy/vali-deploy.csproj`
 
 Entrar a cada uno de los 7 flujos (Add/Remove de omit-files, Add/Remove de Docker args, Add/Remove de publish args, Edit Step Args de un pipeline) y verificar que el header (marca + versión + breadcrumb) permanece visible en todo momento — nunca desaparece entre el `Clear()` de entrada y la primera línea de contenido.
 
+Pendiente de verificación interactiva humana (no automatizable de forma confiable — prompts de Spectre.Console vía teclado).
+
 - [ ] **Step 3: Recorrido funcional de las pantallas de ejecución (Task 10)**
 
 Ejecutar un pipeline de un subproyecto con `PipelinesByEnvironment` configurado — verificar que el header aparece antes del prompt "Elegí el entorno a desplegar" y se actualiza con el breadcrumb del entorno elegido antes de que arranque `PipelineExecutionView` (barras de progreso).
 
-Si hay un subproyecto con `DockerfilePath` configurado, ejecutar Docker Build (o Docker Run/Push si hay imagen disponible) y verificar que el header aparece antes del mensaje "Building Docker image...".
+Si hay un subproyecto con `DockerfilePath` configurado, ejecutar Docker Build (o Docker Run/Push si hay imagen disponible) y "Generate Microsoft publish", y verificar que el header aparece antes de cada uno de esos 4 mensajes de ejecución.
 
-- [ ] **Step 4: Confirmar que no quedó código muerto ni breadcrumbs rotos**
+Pendiente de verificación interactiva humana (mismo motivo que Step 2).
+
+- [x] **Step 4: Confirmar que no quedó código muerto ni breadcrumbs rotos**
 
 Run: `grep -rn "AnsiConsole.Clear" vali-deploy/Managers/MenuManager.cs vali-deploy/Presentation/PipelineEditorMenu.cs --include=*.cs`
 
 Revisar manualmente que cada `Clear()` restante en estos dos archivos tiene un `DrawHeader`/`DisplayMainMenu` inmediatamente después (los únicos `Clear()` sin header esperado son los del loop principal de `MenuManager` que llaman a `DisplayMainMenu()` en la misma línea siguiente, ya cubiertos desde Task 4).
+
+Verificado por el review final holístico: los 20 `Clear()` en `MenuManager.cs`, 2 en `PipelineEditorMenu.cs` y 1 en `EnvironmentMenu.cs` tienen `DrawHeader`/`DisplayMainMenu()` inmediatamente después (directo o vía delegación). El único `Clear()` sin header es `SplashScreen.cs:17` (pantalla de boot previa a que exista cualquier menú) — correcto que no lo tenga.
+
+**Nota de diseño (no bloqueante, decisión consciente):** en los 6 sub-flujos de Task 9 dentro de `MenuManager.cs` (`AddFileToOmitFromPublishAsync`, `RemoveFileToOmitFromPublishAsync`, `AddDockerArgAsync`, `RemoveDockerArgsAsync`, `AddPublishArgAsync`, `RemovePublishArgsAsync`) el breadcrumb es solo `subProject.Name`, mientras que la pantalla padre que los contiene (`DisplayOmitFilesFromPublish`/`DisplayDockerArgs`/`DisplayPublishArgs`) muestra `"{projectName} · {subProject.Name}"` — el `projectName` "desaparece" un nivel más adentro. Es intencional: esos 6 métodos no reciben `projectName` como parámetro (ver Task 9), y agregarlo hubiese significado cambiar la firma de 6 métodos por una diferencia cosmética de breadcrumb. Si a futuro se toca esta zona del código de nuevo, vale la pena unificarlo.
