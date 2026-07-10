@@ -11,14 +11,17 @@ public static class EnvironmentMenu
         while (true)
         {
             var config = repository.Load();
+            AnsiConsole.Clear();
+            ShellRenderer.DrawHeader(config.Projects, breadcrumb: "Entornos");
+
             var option = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
                     .Title("[bold]Manage Environments[/]")
                     .AddChoices(config.Environments.Select(e => e.Name)
                         .Append("[green]Add Environment[/]")
-                        .Append("[chartreuse3_1]Back to Main Menu[/]")));
+                        .Append("[seagreen1]Back to Main Menu[/]")));
 
-            if (option == "[chartreuse3_1]Back to Main Menu[/]") return;
+            if (option == "[seagreen1]Back to Main Menu[/]") return;
 
             if (option == "[green]Add Environment[/]")
             {
