@@ -10,6 +10,15 @@ public static class DeployHistoryView
     private const string AllProjectsOption = "[grey]Todos los proyectos[/]";
     private const string BackOption = "[seagreen1]Back to Main Menu[/]";
 
+    /// <summary>
+    /// Sentinel usado para representar la opción "Back" dentro de un <see cref="SelectionPrompt{DeployRunSummary}"/>
+    /// tipado. Comparado siempre por referencia (<see cref="ReferenceEquals"/>) — nunca por valor — porque
+    /// <see cref="DeployRunSummary"/> no define igualdad estructural. Mismo patrón que <see cref="PipelineEditorMenu"/>
+    /// usa con <c>SelectionPrompt&lt;DeployStep&gt;</c> vía <c>UseConverter</c>, evitando el round-trip a través de
+    /// strings (y la ambigüedad de <c>IndexOf</c> cuando dos runs describen igual).
+    /// </summary>
+    private static readonly DeployRunSummary BackSentinel = new();
+
     public static Task ShowAsync(IDeployHistoryRepository repository, IReadOnlyList<string> projectNames)
     {
         AnsiConsole.Clear();
@@ -57,14 +66,13 @@ public static class DeployHistoryView
 
     private static DeployRunSummary? PromptRunSelection(IReadOnlyList<DeployRunSummary> runs)
     {
-        var choices = runs.Select(DescribeRun).Append(BackOption).ToList();
-
         var selected = AnsiConsole.Prompt(
-            new SelectionPrompt<string>()
+            new SelectionPrompt<DeployRunSummary>()
                 .Title("Elegí un run para ver el detalle:")
-                .AddChoices(choices));
+                .UseConverter(DescribeRun)
+                .AddChoices(runs.Append(BackSentinel)));
 
-        return selected == BackOption ? null : runs[choices.IndexOf(selected)];
+        return ReferenceEquals(selected, BackSentinel) ? null : selected;
     }
 
     private static void RenderTable(IReadOnlyList<DeployRunSummary> runs)
@@ -86,7 +94,9 @@ public static class DeployHistoryView
     }
 
     private static string DescribeRun(DeployRunSummary run) =>
-        $"{run.StartedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm} · {run.ProjectName}/{run.SubProjectName} · {run.EnvironmentName}";
+        ReferenceEquals(run, BackSentinel)
+            ? BackOption
+            : $"{run.StartedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm} · {run.ProjectName}/{run.SubProjectName} · {run.EnvironmentName}";
 
     private static void ShowDetail(DeployRunSummary entry)
     {
