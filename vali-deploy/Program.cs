@@ -1,6 +1,15 @@
 ﻿using Spectre.Console;
+using vali_deploy;
 using vali_deploy.Managers;
+using vali_deploy.Presentation;
 using vali_deploy.Utils;
+
+async Task LaunchShellAsync()
+{
+    var config = CompositionRoot.CreateProjectRepository().Load();
+    SplashScreen.ShowAndWait(config);
+    await MenuManager.StartAsync();
+}
 
 try
 {
@@ -38,19 +47,19 @@ try
             {
                 AnsiConsole.MarkupLine("[red]No download available for your operating system.[/]");
                 UpdaterManager.DeleteOldVersions();
-                await MenuManager.StartAsync();
+                await LaunchShellAsync();
             }
         }
         else
         {
             UpdaterManager.DeleteOldVersions();
-            await MenuManager.StartAsync();
+            await LaunchShellAsync();
         }
     }
     else
     {
         UpdaterManager.DeleteOldVersions();
-        await MenuManager.StartAsync();
+        await LaunchShellAsync();
     }
 }
 catch (Exception ex)
