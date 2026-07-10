@@ -11,7 +11,14 @@ public static class MenuManager
 {
     private static Dictionary<string, Project> _projects = new();
     private static readonly Infrastructure.IProjectRepository _repository = CompositionRoot.CreateProjectRepository();
-    private static readonly string[] _dockerActions = { "Docker Build", "Docker Run", "Push to Docker Hub" };
+    private static readonly string[] _dockerActions = { "Docker Build", "Docker Run", "Push to registry" };
+
+    /// <summary>
+    /// DeployEnvironment reservado para acciones locales sin deploy remoto (Docker Build/Run/Push local,
+    /// "Generate Microsoft publish"). Se construye en memoria y nunca se persiste a deploy_config.json —
+    /// no aparece en "Manage Environments" ni en ningún otro menú porque nunca entra a config.Environments.
+    /// </summary>
+    private static readonly Domain.DeployEnvironment LocalEnvironment = new() { Name = "Local" };
 
     /// <summary>
     /// Starts the main menu loop of the application, allowing users to interact with project management features.
@@ -797,10 +804,8 @@ public static class MenuManager
         switch (action)
         {
             case "Generate Microsoft publish":
-                AnsiConsole.MarkupLine(
-                    $"[green]Running normal publish for subproject '{Markup.Escape(subProject.Name)}' in project '{Markup.Escape(projectName)}'...[/]");
-                await CommandExecutor.RunCommandsAsync(projectName, subProject.Name, subProjectPathFull, subProject);
-                PauseForUserInput();
+                await RunLocalPipelineAsync(project, subProject, projectName,
+                    new Application.PipelineTemplateFactory().CreateLocalPublishTemplate(subProject.OmitFiles));
                 break;
 
             case "Edit Pipeline":
@@ -810,19 +815,9 @@ public static class MenuManager
             case "Docker Build":
                 if (!string.IsNullOrEmpty(subProject.DockerfilePath))
                 {
-                    string dockerfileFullPath = Path.Combine(subProjectPathFull, subProject.DockerfilePath);
-                    AnsiConsole.MarkupLine(
-                        $"[green]Building Docker image for subproject '{Markup.Escape(subProject.Name)}'...[/]");
-                    string buildArgs = subProject.DockerBuildArgs is { Count: > 0 }
-                        ? " " + string.Join(" ", subProject.DockerBuildArgs)
-                        : "";
-                    string buildCommand =
-                        $"docker build -f \"{dockerfileFullPath}\" -t {imageTag}{buildArgs} \"{subProjectPathFull}\"";
-                    int buildResult = await CommandExecutor.ExecuteDockerCommandAsync(buildCommand);
-                    AnsiConsole.MarkupLine(buildResult == 0
-                        ? $"[green]Docker image '{imageTag}' built successfully![/]"
-                        : "[red]Docker build failed. Check the output above.[/]");
-                    PauseForUserInput();
+                    var buildArgs = subProject.DockerBuildArgs is { Count: > 0 } ? string.Join(" ", subProject.DockerBuildArgs) : "";
+                    var steps = new Application.PipelineTemplateFactory().CreateLocalDockerBuildTemplate(subProject.DockerfilePath, imageTag, buildArgs);
+                    await RunLocalPipelineAsync(project, subProject, projectName, steps);
                 }
 
                 break;
@@ -830,46 +825,31 @@ public static class MenuManager
             case "Docker Run":
                 if (!string.IsNullOrEmpty(subProject.DockerfilePath))
                 {
-                    AnsiConsole.MarkupLine(
-                        $"[green]Running Docker container for subproject '{Markup.Escape(subProject.Name)}'...[/]");
-                    string runArgs = subProject.DockerRunArgs is { Count: > 0 }
-                        ? " " + string.Join(" ", subProject.DockerRunArgs)
-                        : "";
-                    string runCommand = $"docker run -it --rm{runArgs} {imageTag}";
-                    int runResult = await CommandExecutor.ExecuteDockerCommandAsync(runCommand);
-                    if (runResult == 0)
-                        AnsiConsole.MarkupLine($"[green]Container ran successfully![/]");
-                    else
-                        AnsiConsole.MarkupLine("[red]Docker run failed. Check the output above.[/]");
-                    PauseForUserInput();
+                    var runArgs = subProject.DockerRunArgs is { Count: > 0 } ? string.Join(" ", subProject.DockerRunArgs) : "";
+                    var steps = new Application.PipelineTemplateFactory().CreateLocalDockerRunTemplate(imageTag, runArgs);
+                    await RunLocalPipelineAsync(project, subProject, projectName, steps);
                 }
 
                 break;
 
-            case "Push to Docker Hub":
+            case "Push to registry":
                 if (!string.IsNullOrEmpty(subProject.DockerfilePath))
                 {
-                    string? dockerHubUser = subProject.DockerHubUser;
-                    if (string.IsNullOrEmpty(dockerHubUser))
+                    if (subProject.DockerRegistry == null || string.IsNullOrEmpty(subProject.DockerRegistry.Username))
                     {
-                        dockerHubUser = AnsiConsole.Ask<string>("Enter your Docker Hub username (this will be saved):");
-                        subProject.DockerHubUser = dockerHubUser;
+                        var username = AnsiConsole.Ask<string>("Usuario del registry (ej. tu usuario de Docker Hub):");
+                        var host = AnsiConsole.Ask("Host del registry (vacío = Docker Hub):", "");
+                        var hasToken = AnsiConsole.Confirm("¿Vas a autenticarte con un token vía variable de entorno?");
+                        string? tokenEnvVar = hasToken
+                            ? AnsiConsole.Ask<string>("Nombre de la variable de entorno con el token:")
+                            : null;
+
+                        subProject.DockerRegistry = new DockerRegistry { Host = host, Username = username, TokenEnvVar = tokenEnvVar };
                         PersistProjects();
                     }
 
-                    string dockerHubTag = $"{dockerHubUser}/{imageTag}";
-                    AnsiConsole.MarkupLine($"[yellow]Tagging image '{imageTag}' as '{dockerHubTag}'...[/]");
-                    string tagCommand = $"docker tag {imageTag} {dockerHubTag}";
-                    await CommandExecutor.ExecuteDockerCommandAsync(tagCommand);
-
-                    AnsiConsole.MarkupLine($"[yellow]Pushing to Docker Hub as '{dockerHubTag}'...[/]");
-                    string pushCommand = $"docker push {dockerHubTag}";
-                    int pushResult = await CommandExecutor.ExecuteDockerCommandAsync(pushCommand);
-                    if (pushResult == 0)
-                        AnsiConsole.MarkupLine($"[green]Image pushed to Docker Hub successfully![/]");
-                    else
-                        AnsiConsole.MarkupLine("[red]Push to Docker Hub failed. Check credentials or network.[/]");
-                    PauseForUserInput();
+                    var steps = new Application.PipelineTemplateFactory().CreateLocalDockerPushTemplate(imageTag, subProject.DockerRegistry);
+                    await RunLocalPipelineAsync(project, subProject, projectName, steps);
                 }
 
                 break;
@@ -877,6 +857,37 @@ public static class MenuManager
             case "[seagreen1]Back to Subprojects[/]":
                 return;
         }
+    }
+
+    /// <summary>
+    /// Ejecuta un pipeline efímero de 1 step (Docker Build/Run/Push local, o publish local) contra
+    /// <see cref="LocalEnvironment"/>. A diferencia de <see cref="ExecuteSubProjectPipelineAsync"/>, no
+    /// persiste nada en PipelinesByEnvironment — el pipeline se descarta después de correr.
+    /// </summary>
+    private static async Task RunLocalPipelineAsync(Project project, SubProject subProject, string projectName, List<Domain.DeployStep> steps)
+    {
+        var subProjectPathFull = Path.Combine(project.Path, subProject.Path);
+        var context = new Application.StepExecutionContext
+        {
+            ProjectName = projectName,
+            SubProjectName = subProject.Name,
+            ProjectPath = subProjectPathFull,
+            Environment = LocalEnvironment
+        };
+
+        var pipelineRunner = CompositionRoot.CreatePipelineRunner();
+        var logger = CompositionRoot.CreatePipelineLogger();
+        logger.StartRun(projectName, subProject.Name);
+
+        var view = new Presentation.PipelineExecutionView();
+        var result = await view.RunAsync(pipelineRunner, steps, context);
+
+        foreach (var stepResult in result.Steps)
+        {
+            logger.WriteStep(stepResult);
+        }
+
+        PauseForUserInput(result.Success ? "Ejecución completada con éxito." : "La ejecución falló, revisá el detalle arriba.");
     }
 
     /// <summary>
