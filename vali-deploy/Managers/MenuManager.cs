@@ -26,7 +26,9 @@ public static class MenuManager
     /// <returns>A task representing the asynchronous operation.</returns>
     public static async Task StartAsync()
     {
-        _projects = _repository.Load().Projects;
+        var config = _repository.Load();
+        _projects = config.Projects;
+        Presentation.Translator.SetLanguage(config.Language);
 
         bool running = true;
 
@@ -77,6 +79,9 @@ public static class MenuManager
                 case "View Environments Tree":
                     await Presentation.EnvironmentsTreeView.ShowAsync(Application.EnvironmentsTreeBuilder.Build(_repository.Load()));
                     break;
+                case "Language / Idioma":
+                    ShowLanguageMenu();
+                    break;
                 case "[seagreen1]Exit[/]":
                     running = false;
                     AnsiConsole.MarkupLine("[yellow] Leaving...[/]");
@@ -113,11 +118,33 @@ public static class MenuManager
     {
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
-                .Title("What do you want to do?")
+                .Title(Presentation.Translator.T("What do you want to do?"))
+                .UseConverter(Presentation.Translator.T)
                 .AddChoices("Add Project", "Remove Project", "Show Projects", "Configure Publish File Omissions",
                     "Remove Subprojects", "Manage Docker Projects", "Manage Publish Arguments", "Manage Environments",
-                    "View Deploy History", "View Environments Tree", "[seagreen1]Exit[/]")
+                    "View Deploy History", "View Environments Tree", "Language / Idioma", "[seagreen1]Exit[/]")
         );
+    }
+
+    /// <summary>
+    /// Muestra el selector de idioma (Inglés/Español), persiste la elección en deploy_config.json
+    /// y actualiza <see cref="Presentation.Translator"/> para que tenga efecto inmediato en la sesión actual.
+    /// </summary>
+    private static void ShowLanguageMenu()
+    {
+        var selected = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("Language / Idioma")
+                .AddChoices("English", "Español")
+        );
+
+        var languageCode = selected == "Español" ? "es" : "en";
+
+        var config = _repository.Load();
+        config.Language = languageCode;
+        _repository.Save(config);
+
+        Presentation.Translator.SetLanguage(languageCode);
     }
 
     /// <summary>
