@@ -35,8 +35,19 @@ public class ProcessRunner : IProcessRunner
 
         if (stdInput != null)
         {
-            await process.StandardInput.WriteAsync(stdInput);
-            process.StandardInput.Close();
+            try
+            {
+                await process.StandardInput.WriteAsync(stdInput);
+                // Cierre explícito: señala EOF al proceso hijo. Sin esto, un comando que lee hasta EOF
+                // (ej. "docker login --password-stdin") se cuelga para siempre y WaitForExitAsync nunca retorna.
+                process.StandardInput.Close();
+            }
+            catch (IOException)
+            {
+                // El proceso hijo cerró su extremo del pipe antes de terminar de escribir (falló instantáneo,
+                // comando inexistente, etc.) — el exit code/stderr reales que capturamos abajo ya cuentan
+                // la historia útil, así que seguimos hacia WaitForExitAsync en vez de propagar la excepción.
+            }
         }
 
         await process.WaitForExitAsync();
