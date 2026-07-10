@@ -1,6 +1,5 @@
 ﻿using Spectre.Console;
 using vali_deploy.Domain;
-using vali_deploy.Utils;
 
 namespace vali_deploy.Managers;
 
@@ -11,7 +10,6 @@ namespace vali_deploy.Managers;
 public static class MenuManager
 {
     private static Dictionary<string, Project> _projects = new();
-    private static BarChart _barChart = new();
     private static readonly Infrastructure.IProjectRepository _repository = CompositionRoot.CreateProjectRepository();
 
     /// <summary>
@@ -21,7 +19,6 @@ public static class MenuManager
     public static async Task StartAsync()
     {
         _projects = _repository.Load().Projects;
-        _barChart = ChartManager.CreateBarChart(_projects);
 
         bool running = true;
 
@@ -66,7 +63,7 @@ public static class MenuManager
                 case "Manage Environments":
                     await Presentation.EnvironmentMenu.StartAsync(CompositionRoot.CreateProjectRepository());
                     break;
-                case "[chartreuse3_1]Exit[/]":
+                case "[seagreen1]Exit[/]":
                     running = false;
                     AnsiConsole.MarkupLine("[yellow] Leaving...[/]");
                     Environment.Exit(0);
@@ -76,27 +73,22 @@ public static class MenuManager
     }
 
     /// <summary>
-    /// Displays the main menu header, including the application title, version, and project statistics bar chart.
+    /// Displays the shell header (branding, version, global summary) via <see cref="Presentation.ShellRenderer"/>.
     /// </summary>
     private static void DisplayMainMenu()
     {
         AnsiConsole.Clear();
-        var currentVersion = Util.GetCurrentVersion();
+        Presentation.ShellRenderer.DrawHeader(_projects);
+    }
 
-        AnsiConsole.Write(new Rule());
-        AnsiConsole.Write(new Rule("[red] Developed by [yellow]Felipe Rafael M.M[/] [/]"));
-        AnsiConsole.Write(new Rule());
-        AnsiConsole.Write(new Rule($"[bold grey] Version: {currentVersion}[/]").RightJustified());
-        AnsiConsole.Write(new Rule());
-        AnsiConsole.WriteLine();
-
-        var gridHeader = new Grid()
-            .AddColumn(new GridColumn().RightAligned())
-            .AddColumn(new GridColumn().LeftAligned())
-            .AddRow(new FigletText("Vali-Deploy").LeftJustified().Color(Color.Yellow), _barChart);
-
-        AnsiConsole.Write(gridHeader);
-        AnsiConsole.WriteLine();
+    /// <summary>
+    /// Same as <see cref="DisplayMainMenu()"/>, but shows <paramref name="breadcrumb"/> (e.g. "proyecto · subproyecto")
+    /// instead of the global project/subproject summary — used by screens scoped to one project/subproject.
+    /// </summary>
+    private static void DisplayMainMenu(string breadcrumb)
+    {
+        AnsiConsole.Clear();
+        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb);
     }
 
     /// <summary>
@@ -110,7 +102,7 @@ public static class MenuManager
                 .Title("What do you want to do?")
                 .AddChoices("Add Project", "Remove Project", "Show Projects", "Configure Publish File Omissions",
                     "Remove Subprojects", "Manage Docker Projects", "Manage Publish Arguments", "Manage Environments",
-                    "[chartreuse3_1]Exit[/]")
+                    "[seagreen1]Exit[/]")
         );
     }
 
@@ -120,7 +112,6 @@ public static class MenuManager
     private static void UpdateProjectsAndChart()
     {
         _projects = _repository.Load().Projects;
-        _barChart = ChartManager.CreateBarChart(_projects);
     }
 
     /// <summary>
@@ -318,10 +309,10 @@ public static class MenuManager
             new MultiSelectionPrompt<string>()
                 .Title("Select projects to remove (use spacebar to select, Enter to confirm)")
                 .NotRequired()
-                .AddChoices(_projects.Keys.Append("[chartreuse3_1]Back to Main Menu[/]"))
+                .AddChoices(_projects.Keys.Append("[seagreen1]Back to Main Menu[/]"))
         );
 
-        if (projectsToRemove.Contains("[chartreuse3_1]Back to Main Menu[/]") || projectsToRemove.Count == 0)
+        if (projectsToRemove.Contains("[seagreen1]Back to Main Menu[/]") || projectsToRemove.Count == 0)
         {
             return;
         }
@@ -350,7 +341,7 @@ public static class MenuManager
             }
 
             var projectName = PromptProjectSelectionForSubprojectRemoval();
-            if (projectName == "[chartreuse3_1]Back to Main Menu[/]") return;
+            if (projectName == "[seagreen1]Back to Main Menu[/]") return;
 
             var project = _projects[projectName];
             if (project.SubProjects.Count == 0)
@@ -384,13 +375,13 @@ public static class MenuManager
     /// <summary>
     /// Prompts the user to select a project for subproject removal.
     /// </summary>
-    /// <returns>The selected project name, or "[chartreuse3_1]Back to Main Menu[/]" if the user cancels.</returns>
+    /// <returns>The selected project name, or "[seagreen1]Back to Main Menu[/]" if the user cancels.</returns>
     private static string PromptProjectSelectionForSubprojectRemoval()
     {
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("Select a project to remove subprojects from")
-                .AddChoices(_projects.Keys.Append("[chartreuse3_1]Back to Main Menu[/]"))
+                .AddChoices(_projects.Keys.Append("[seagreen1]Back to Main Menu[/]"))
         );
     }
 
@@ -407,10 +398,10 @@ public static class MenuManager
                 .Title(
                     $"Select subprojects to remove from project '{projectName}' (use spacebar to select, Enter to confirm)")
                 .NotRequired()
-                .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[chartreuse3_1]Cancel[/]"))
+                .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[seagreen1]Cancel[/]"))
         );
 
-        if (selectedSubProjects.Contains("[chartreuse3_1]Cancel[/]") || selectedSubProjects.Count == 0)
+        if (selectedSubProjects.Contains("[seagreen1]Cancel[/]") || selectedSubProjects.Count == 0)
             return null;
 
         return selectedSubProjects;
@@ -432,7 +423,7 @@ public static class MenuManager
             }
 
             var projectName = PromptProjectSelection();
-            if (projectName == "[chartreuse3_1]Back to Main Menu[/]") return;
+            if (projectName == "[seagreen1]Back to Main Menu[/]") return;
 
             if (await ShowSubProjectsAsync(_projects[projectName], projectName))
                 break;
@@ -442,13 +433,13 @@ public static class MenuManager
     /// <summary>
     /// Prompts the user to select a project from the list of available projects.
     /// </summary>
-    /// <returns>The selected project name, or "[chartreuse3_1]Back to Main Menu[/]" if the user cancels.</returns>
+    /// <returns>The selected project name, or "[seagreen1]Back to Main Menu[/]" if the user cancels.</returns>
     private static string PromptProjectSelection()
     {
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("Select a project")
-                .AddChoices(_projects.Keys.Append("[chartreuse3_1]Back to Main Menu[/]"))
+                .AddChoices(_projects.Keys.Append("[seagreen1]Back to Main Menu[/]"))
         );
     }
 
@@ -477,7 +468,7 @@ public static class MenuManager
             }
 
             var subProjectName = PromptSubProjectSelection(project, projectName);
-            if (subProjectName == "[chartreuse3_1]Back to Projects Menu[/]") return false;
+            if (subProjectName == "[seagreen1]Back to Projects Menu[/]") return false;
 
             var selectedSubProject = project.SubProjects.FirstOrDefault(sp => sp.Name == subProjectName);
             if (selectedSubProject == null)
@@ -496,13 +487,13 @@ public static class MenuManager
     /// </summary>
     /// <param name="project">The project containing the subprojects.</param>
     /// <param name="projectName">The name of the project.</param>
-    /// <returns>The selected subproject name, or "[chartreuse3_1]Back to Projects Menu[/]" if the user cancels.</returns>
+    /// <returns>The selected subproject name, or "[seagreen1]Back to Projects Menu[/]" if the user cancels.</returns>
     private static string PromptSubProjectSelection(Project project, string projectName)
     {
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title($"Select a subproject for project '{projectName}'")
-                .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[chartreuse3_1]Back to Projects Menu[/]"))
+                .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[seagreen1]Back to Projects Menu[/]"))
         );
     }
 
@@ -521,7 +512,7 @@ public static class MenuManager
             }
 
             var projectName = PromptProjectForOmitFilesFromPublish();
-            if (projectName == "[chartreuse3_1]Back to Main Menu[/]") return;
+            if (projectName == "[seagreen1]Back to Main Menu[/]") return;
 
             await ManageSubProjectFilesFromPublishAsync(_projects[projectName], projectName);
         }
@@ -530,13 +521,13 @@ public static class MenuManager
     /// <summary>
     /// Prompts the user to select a project for managing publish file omissions.
     /// </summary>
-    /// <returns>The selected project name, or "[chartreuse3_1]Back to Main Menu[/]" if the user cancels.</returns>
+    /// <returns>The selected project name, or "[seagreen1]Back to Main Menu[/]" if the user cancels.</returns>
     private static string PromptProjectForOmitFilesFromPublish()
     {
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("Select a project to configure publish file omissions")
-                .AddChoices(_projects.Keys.Append("[chartreuse3_1]Back to Main Menu[/]"))
+                .AddChoices(_projects.Keys.Append("[seagreen1]Back to Main Menu[/]"))
         );
     }
 
@@ -576,10 +567,10 @@ public static class MenuManager
         var subProjectName = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title($"Select a subproject for project '{projectName}' to manage files to omit")
-                .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[chartreuse3_1]Back to Projects[/]"))
+                .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[seagreen1]Back to Projects[/]"))
         );
 
-        if (subProjectName == "[chartreuse3_1]Back to Projects[/]") return null;
+        if (subProjectName == "[seagreen1]Back to Projects[/]") return null;
 
         var foundSubProject = project.SubProjects.FirstOrDefault(sp => sp.Name == subProjectName);
         if (foundSubProject == null)
@@ -615,7 +606,7 @@ public static class MenuManager
                     await RemoveFileToOmitFromPublishAsync(subProject);
                     break;
 
-                case "[chartreuse3_1]Back to Subprojects[/]":
+                case "[seagreen1]Back to Subprojects[/]":
                     managingFiles = false;
                     AnsiConsole.Clear();
                     DisplayMainMenu();
@@ -650,7 +641,7 @@ public static class MenuManager
             }
         }
 
-        DisplayMainMenu();
+        DisplayMainMenu($"{projectName} · {subProject.Name}");
         AnsiConsole.Write(panel);
         AnsiConsole.WriteLine();
     }
@@ -664,7 +655,7 @@ public static class MenuManager
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("What do you want to do?")
-                .AddChoices("Add file to omit", "Remove file from omit list", "[chartreuse3_1]Back to Subprojects[/]")
+                .AddChoices("Add file to omit", "Remove file from omit list", "[seagreen1]Back to Subprojects[/]")
         );
     }
 
@@ -734,10 +725,10 @@ public static class MenuManager
                 new MultiSelectionPrompt<string>()
                     .Title("Select files to remove 'from' omit list (use spacebar to select, Enter to confirm)")
                     .NotRequired()
-                    .AddChoices(subProject.OmitFiles.Append("[chartreuse3_1]Cancel[/]"))
+                    .AddChoices(subProject.OmitFiles.Append("[seagreen1]Cancel[/]"))
             );
 
-            if (!filesToRemove.Contains("[chartreuse3_1]Cancel[/]") && filesToRemove.Count > 0)
+            if (!filesToRemove.Contains("[seagreen1]Cancel[/]") && filesToRemove.Count > 0)
             {
                 foreach (var file in filesToRemove)
                 {
@@ -781,7 +772,7 @@ public static class MenuManager
         string subProjectPathFull = Path.Combine(project.Path, subProject.Path);
         string imageTag = $"{projectName.ToLower()}-{subProject.Name.ToLower()}:latest";
 
-        var choices = new List<string> { "Generate Microsoft publish", "Edit Pipeline", "[chartreuse3_1]Back to Subprojects[/]" };
+        var choices = new List<string> { "Generate Microsoft publish", "Edit Pipeline", "[seagreen1]Back to Subprojects[/]" };
         if (!string.IsNullOrEmpty(subProject.DockerfilePath))
         {
             choices.Insert(1, "Docker Build");
@@ -875,7 +866,7 @@ public static class MenuManager
 
                 break;
 
-            case "[chartreuse3_1]Back to Subprojects[/]":
+            case "[seagreen1]Back to Subprojects[/]":
                 return;
         }
     }
@@ -954,10 +945,10 @@ public static class MenuManager
             var projectName = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
                     .Title("Select a project with Docker subprojects")
-                    .AddChoices(dockerProjects.Keys.Append("[chartreuse3_1]Back to Main Menu[/]"))
+                    .AddChoices(dockerProjects.Keys.Append("[seagreen1]Back to Main Menu[/]"))
             );
 
-            if (projectName == "[chartreuse3_1]Back to Main Menu[/]") return;
+            if (projectName == "[seagreen1]Back to Main Menu[/]") return;
 
             await ManageDockerSubProjectsAsync(dockerProjects[projectName], projectName);
         }
@@ -988,10 +979,10 @@ public static class MenuManager
             var subProjectName = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
                     .Title($"Select a Docker subproject in '{projectName}'")
-                    .AddChoices(dockerSubProjects.Select(sp => sp.Name).Append("[chartreuse3_1]Back to Projects[/]"))
+                    .AddChoices(dockerSubProjects.Select(sp => sp.Name).Append("[seagreen1]Back to Projects[/]"))
             );
 
-            if (subProjectName == "[chartreuse3_1]Back to Projects[/]") return;
+            if (subProjectName == "[seagreen1]Back to Projects[/]") return;
 
             var subProject = dockerSubProjects.First(sp => sp.Name == subProjectName);
             await ManageDockerArgsAsync(subProject, projectName);
@@ -1023,7 +1014,7 @@ public static class MenuManager
                     await RemoveDockerArgsAsync(subProject);
                     break;
 
-                case "[chartreuse3_1]Back to Subprojects[/]":
+                case "[seagreen1]Back to Subprojects[/]":
                     managingArgs = false;
                     AnsiConsole.Clear();
                     DisplayMainMenu();
@@ -1075,7 +1066,7 @@ public static class MenuManager
             }
         }
 
-        DisplayMainMenu();
+        DisplayMainMenu($"{projectName} · {subProject.Name}");
         AnsiConsole.Write(panel);
         AnsiConsole.WriteLine();
     }
@@ -1083,13 +1074,13 @@ public static class MenuManager
     /// <summary>
     /// Prompts the user to select an action for managing Docker arguments.
     /// </summary>
-    /// <returns>The selected action as a string, such as "Add Docker Arg", "Remove Docker Args", or "[chartreuse3_1]Back to Subprojects[/]".</returns>
+    /// <returns>The selected action as a string, such as "Add Docker Arg", "Remove Docker Args", or "[seagreen1]Back to Subprojects[/]".</returns>
     private static string PromptDockerArgsAction()
     {
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("What do you want to do?")
-                .AddChoices("Add Docker Arg", "Remove Docker Args", "[chartreuse3_1]Back to Subprojects[/]")
+                .AddChoices("Add Docker Arg", "Remove Docker Args", "[seagreen1]Back to Subprojects[/]")
         );
     }
 
@@ -1115,10 +1106,10 @@ public static class MenuManager
             var type = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
                     .Title("Select argument type:")
-                    .AddChoices("Build Arg", "Run Arg", "[chartreuse3_1]Back[/]")
+                    .AddChoices("Build Arg", "Run Arg", "[seagreen1]Back[/]")
             );
 
-            if (type == "[chartreuse3_1]Back[/]")
+            if (type == "[seagreen1]Back[/]")
             {
                 addingArgs = false;
                 continue;
@@ -1203,10 +1194,10 @@ public static class MenuManager
         var type = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("Select argument type to remove:")
-                .AddChoices("Build Args", "Run Args", "[chartreuse3_1]Cancel[/]")
+                .AddChoices("Build Args", "Run Args", "[seagreen1]Cancel[/]")
         );
 
-        if (type == "[chartreuse3_1]Cancel[/]") return Task.CompletedTask;
+        if (type == "[seagreen1]Cancel[/]") return Task.CompletedTask;
 
         if (type == "Build Args")
         {
@@ -1221,10 +1212,10 @@ public static class MenuManager
                 new MultiSelectionPrompt<string>()
                     .Title("Select build args to remove (use spacebar to select, Enter to confirm)")
                     .NotRequired()
-                    .AddChoices(subProject.DockerBuildArgs.Append("[chartreuse3_1]Cancel[/]"))
+                    .AddChoices(subProject.DockerBuildArgs.Append("[seagreen1]Cancel[/]"))
             );
 
-            if (!argsToRemove.Contains("[chartreuse3_1]Cancel[/]") && argsToRemove.Count > 0)
+            if (!argsToRemove.Contains("[seagreen1]Cancel[/]") && argsToRemove.Count > 0)
             {
                 foreach (var arg in argsToRemove)
                 {
@@ -1248,10 +1239,10 @@ public static class MenuManager
                 new MultiSelectionPrompt<string>()
                     .Title("Select run args to remove (use spacebar to select, Enter to confirm)")
                     .NotRequired()
-                    .AddChoices(subProject.DockerRunArgs.Append("[chartreuse3_1]Cancel[/]"))
+                    .AddChoices(subProject.DockerRunArgs.Append("[seagreen1]Cancel[/]"))
             );
 
-            if (!argsToRemove.Contains("[chartreuse3_1]Cancel[/]") && argsToRemove.Count > 0)
+            if (!argsToRemove.Contains("[seagreen1]Cancel[/]") && argsToRemove.Count > 0)
             {
                 foreach (var arg in argsToRemove)
                 {
@@ -1288,10 +1279,10 @@ public static class MenuManager
             var projectName = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
                     .Title("Select a project to manage publish arguments")
-                    .AddChoices(_projects.Keys.Append("[chartreuse3_1]Back to Main Menu[/]"))
+                    .AddChoices(_projects.Keys.Append("[seagreen1]Back to Main Menu[/]"))
             );
 
-            if (projectName == "[chartreuse3_1]Back to Main Menu[/]") return;
+            if (projectName == "[seagreen1]Back to Main Menu[/]") return;
 
             await ManagePublishSubProjectsAsync(_projects[projectName], projectName);
         }
@@ -1322,10 +1313,10 @@ public static class MenuManager
             var subProjectName = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
                     .Title($"Select a subproject in '{projectName}' to manage publish arguments")
-                    .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[chartreuse3_1]Back to Projects[/]"))
+                    .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[seagreen1]Back to Projects[/]"))
             );
 
-            if (subProjectName == "[chartreuse3_1]Back to Projects[/]") return;
+            if (subProjectName == "[seagreen1]Back to Projects[/]") return;
 
             var subProject = project.SubProjects.First(sp => sp.Name == subProjectName);
             await ManagePublishArgsAsync(subProject, projectName);
@@ -1369,7 +1360,7 @@ public static class MenuManager
                     await Task.Delay(1500); // Pausa breve para mostrar el mensaje
                     break;
 
-                case "[chartreuse3_1]Back to Subprojects[/]":
+                case "[seagreen1]Back to Subprojects[/]":
                     managingArgs = false;
                     AnsiConsole.Clear();
                     DisplayMainMenu();
@@ -1409,7 +1400,7 @@ public static class MenuManager
             }
         }
 
-        DisplayMainMenu();
+        DisplayMainMenu($"{projectName} · {subProject.Name}");
         AnsiConsole.Write(panel);
         AnsiConsole.WriteLine();
     }
@@ -1417,14 +1408,14 @@ public static class MenuManager
     /// <summary>
     /// Prompts the user to select an action for managing publish arguments.
     /// </summary>
-    /// <returns>The selected action as a string, such as "Add Publish Arg", "Remove Publish Args", "Toggle Zip Publish Output", or "[chartreuse3_1]Back to Subprojects[/]".</returns>
+    /// <returns>The selected action as a string, such as "Add Publish Arg", "Remove Publish Args", "Toggle Zip Publish Output", or "[seagreen1]Back to Subprojects[/]".</returns>
     private static string PromptPublishArgsAction()
     {
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("What do you want to do?")
                 .AddChoices("Add Publish Arg", "Remove Publish Args", "Toggle Zip Publish Output",
-                    "[chartreuse3_1]Back to Subprojects[/]")
+                    "[seagreen1]Back to Subprojects[/]")
         );
     }
 
@@ -1504,10 +1495,10 @@ public static class MenuManager
             new MultiSelectionPrompt<string>()
                 .Title("Select publish args to remove (use space-bar to select, Enter to confirm)")
                 .NotRequired()
-                .AddChoices(subProject.PublishArgs.Append("[chartreuse3_1]Cancel[/]"))
+                .AddChoices(subProject.PublishArgs.Append("[seagreen1]Cancel[/]"))
         );
 
-        if (!argsToRemove.Contains("[chartreuse3_1]Cancel[/]") && argsToRemove.Count > 0)
+        if (!argsToRemove.Contains("[seagreen1]Cancel[/]") && argsToRemove.Count > 0)
         {
             foreach (var arg in argsToRemove)
             {
