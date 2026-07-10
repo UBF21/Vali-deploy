@@ -15,33 +15,50 @@ public class TranslatorTests
     [Fact]
     public void T_returns_translation_when_current_language_is_spanish_and_key_exists()
     {
-        Translator.SetLanguage("es");
+        try
+        {
+            Translator.SetLanguage("es");
 
-        Assert.Equal("Agregar Proyecto", Translator.T("Add Project"));
-
-        Translator.SetLanguage("en");
+            Assert.Equal("Agregar Proyecto", Translator.T("Add Project"));
+        }
+        finally
+        {
+            Translator.SetLanguage("en");
+        }
     }
 
     [Fact]
     public void T_returns_original_text_unchanged_when_spanish_and_key_not_found()
     {
-        Translator.SetLanguage("es");
+        try
+        {
+            Translator.SetLanguage("es");
 
-        Assert.Equal("MyDynamicProjectName", Translator.T("MyDynamicProjectName"));
-
-        Translator.SetLanguage("en");
+            Assert.Equal("MyDynamicProjectName", Translator.T("MyDynamicProjectName"));
+        }
+        finally
+        {
+            Translator.SetLanguage("en");
+        }
     }
 
     [Fact]
     public void SetLanguage_changes_behavior_of_subsequent_T_calls()
     {
-        Translator.SetLanguage("en");
-        Assert.Equal("Show Projects", Translator.T("Show Projects"));
+        try
+        {
+            Translator.SetLanguage("en");
+            Assert.Equal("Show Projects", Translator.T("Show Projects"));
 
-        Translator.SetLanguage("es");
-        Assert.Equal("Ver Proyectos", Translator.T("Show Projects"));
+            Translator.SetLanguage("es");
+            Assert.Equal("Ver Proyectos", Translator.T("Show Projects"));
 
-        Translator.SetLanguage("en");
-        Assert.Equal("Show Projects", Translator.T("Show Projects"));
+            Translator.SetLanguage("en");
+            Assert.Equal("Show Projects", Translator.T("Show Projects"));
+        }
+        finally
+        {
+            Translator.SetLanguage("en");
+        }
     }
 }
