@@ -11,6 +11,7 @@ public static class MenuManager
 {
     private static Dictionary<string, Project> _projects = new();
     private static readonly Infrastructure.IProjectRepository _repository = CompositionRoot.CreateProjectRepository();
+    private static readonly string[] DockerActions = { "Docker Build", "Docker Run", "Push to Docker Hub" };
 
     /// <summary>
     /// Starts the main menu loop of the application, allowing users to interact with project management features.
@@ -778,9 +779,7 @@ public static class MenuManager
         var choices = new List<string> { "Generate Microsoft publish", "Edit Pipeline", "[seagreen1]Back to Subprojects[/]" };
         if (!string.IsNullOrEmpty(subProject.DockerfilePath))
         {
-            choices.Insert(1, "Docker Build");
-            choices.Insert(2, "Docker Run");
-            choices.Insert(3, "Push to Docker Hub");
+            choices.InsertRange(1, DockerActions);
         }
 
         var action = AnsiConsole.Prompt(
@@ -789,7 +788,7 @@ public static class MenuManager
                 .AddChoices(choices)
         );
 
-        if (action is "Docker Build" or "Docker Run" or "Push to Docker Hub")
+        if (DockerActions.Contains(action))
         {
             AnsiConsole.Clear();
             Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: $"{projectName} · {subProject.Name}");
