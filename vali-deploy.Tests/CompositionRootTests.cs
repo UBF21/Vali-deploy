@@ -8,7 +8,7 @@ namespace vali_deploy.Tests;
 public class CompositionRootTests
 {
     private static IStepExecutor[] BuildExecutors() =>
-        CompositionRoot.BuildExecutors(new Mock<IProcessRunner>().Object, new Mock<ISshClientFactory>().Object);
+        CompositionRoot.BuildExecutors(new Mock<IProcessRunner>().Object, new Mock<ISshClientFactory>().Object, new Mock<ISecretResolver>().Object);
 
     [Fact]
     public void BuildExecutors_registers_exactly_one_executor_for_every_StepType()
