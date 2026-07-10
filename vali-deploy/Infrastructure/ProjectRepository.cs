@@ -39,13 +39,36 @@ public class ProjectRepository : IProjectRepository
         try
         {
             var json = File.ReadAllText(_configPath);
-            return ParseConfigLeniently(json);
+            var config = ParseConfigLeniently(json);
+            MigrateDockerHubUserToRegistry(config);
+            return config;
         }
         catch (JsonException)
         {
             var defaultConfig = new DeployConfig { Projects = GetDefaultProjects() };
             Save(defaultConfig);
             return defaultConfig;
+        }
+    }
+
+    /// <summary>
+    /// Migra SubProject.DockerHubUser (campo legacy en texto plano) a SubProject.DockerRegistry la primera vez
+    /// que se carga un deploy_config.json escrito por una versión anterior del CLI. No persiste el resultado acá
+    /// — el próximo Save() (de cualquier flujo) ya escribe la forma nueva.
+    /// </summary>
+    internal static void MigrateDockerHubUserToRegistry(DeployConfig config)
+    {
+        foreach (var project in config.Projects.Values)
+        {
+            foreach (var subProject in project.SubProjects)
+            {
+                if (subProject.DockerRegistry == null && !string.IsNullOrEmpty(subProject.DockerHubUser))
+                {
+                    subProject.DockerRegistry = new DockerRegistry { Host = "", Username = subProject.DockerHubUser };
+                }
+
+                subProject.DockerHubUser = null;
+            }
         }
     }
 

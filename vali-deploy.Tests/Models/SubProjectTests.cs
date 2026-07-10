@@ -5,12 +5,11 @@ namespace vali_deploy.Tests.Models;
 public class SubProjectTests
 {
     [Fact]
-    public void New_subproject_has_no_pipelines_and_no_registry_token_configured()
+    public void New_subproject_has_no_pipelines_configured()
     {
         var subProject = new SubProject { Name = "api", Path = "src/api" };
 
         Assert.Empty(subProject.PipelinesByEnvironment);
-        Assert.Null(subProject.DockerRegistryTokenEnvVar);
     }
 
     [Fact]

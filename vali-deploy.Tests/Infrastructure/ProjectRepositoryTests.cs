@@ -115,4 +115,61 @@ public class ProjectRepositoryTests
         Assert.Single(config.Environments);
         Assert.Equal("QA", config.Environments[0].Name);
     }
+
+    [Fact]
+    public void Load_migrates_legacy_DockerHubUser_to_DockerRegistry()
+    {
+        var configPath = NewTempConfigPath();
+        var legacyConfig = new DeployConfig
+        {
+            Projects = new Dictionary<string, Project>
+            {
+                ["proj"] = new Project
+                {
+                    Path = "/tmp/proj",
+                    SubProjects = new List<SubProject> { new() { Name = "api", DockerHubUser = "myuser" } }
+                }
+            }
+        };
+        File.WriteAllText(configPath, JsonSerializer.Serialize(legacyConfig, new JsonSerializerOptions { WriteIndented = true }));
+
+        var repository = new ProjectRepository(configPath);
+        var config = repository.Load();
+
+        var subProject = config.Projects["proj"].SubProjects[0];
+        Assert.NotNull(subProject.DockerRegistry);
+        Assert.Equal("", subProject.DockerRegistry!.Host);
+        Assert.Equal("myuser", subProject.DockerRegistry.Username);
+        Assert.Null(subProject.DockerHubUser);
+    }
+
+    [Fact]
+    public void Load_does_not_overwrite_existing_DockerRegistry_with_stale_DockerHubUser()
+    {
+        var configPath = NewTempConfigPath();
+        var config = new DeployConfig
+        {
+            Projects = new Dictionary<string, Project>
+            {
+                ["proj"] = new Project
+                {
+                    Path = "/tmp/proj",
+                    SubProjects = new List<SubProject>
+                    {
+                        new()
+                        {
+                            Name = "api",
+                            DockerRegistry = new DockerRegistry { Host = "ghcr.io", Username = "already-configured" }
+                        }
+                    }
+                }
+            }
+        };
+        File.WriteAllText(configPath, JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true }));
+
+        var repository = new ProjectRepository(configPath);
+        var reloaded = repository.Load();
+
+        Assert.Equal("already-configured", reloaded.Projects["proj"].SubProjects[0].DockerRegistry!.Username);
+    }
 }
