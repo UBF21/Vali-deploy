@@ -1,5 +1,6 @@
 ﻿using Spectre.Console;
 using vali_deploy.Domain;
+using vali_deploy.Presentation;
 
 namespace vali_deploy.Managers;
 
@@ -573,7 +574,7 @@ public static class MenuManager
     {
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
-                .Title("Select a project to configure publish file omissions")
+                .Translated("Select a project to configure publish file omissions")
                 .AddChoices(_projects.Keys.Append("[seagreen1]Back to Main Menu[/]"))
         );
     }
@@ -613,7 +614,7 @@ public static class MenuManager
 
         var subProjectName = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
-                .Title($"Select a subproject for project '{projectName}' to manage files to omit")
+                .TranslatedFormat("Select a subproject for project '{0}' to manage files to omit", projectName)
                 .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[seagreen1]Back to Projects[/]"))
         );
 
@@ -701,7 +702,7 @@ public static class MenuManager
     {
         return AnsiConsole.Prompt(
             new SelectionPrompt<string>()
-                .Title("What do you want to do?")
+                .Translated("What do you want to do?")
                 .AddChoices("Add file to omit", "Remove file from omit list", "[seagreen1]Back to Subprojects[/]")
         );
     }
@@ -773,7 +774,7 @@ public static class MenuManager
         {
             var filesToRemove = AnsiConsole.Prompt(
                 new MultiSelectionPrompt<string>()
-                    .Title("Select files to remove 'from' omit list (use spacebar to select, Enter to confirm)")
+                    .Translated("Select files to remove 'from' omit list (use spacebar to select, Enter to confirm)")
                     .NotRequired()
                     .AddChoices(subProject.OmitFiles.Append("[seagreen1]Cancel[/]"))
             );
@@ -830,7 +831,7 @@ public static class MenuManager
 
         var action = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
-                .Title($"What do you want to do with subproject '{subProject.Name}'?")
+                .TranslatedFormat("What do you want to do with subproject '{0}'?", subProject.Name)
                 .AddChoices(choices)
         );
 
