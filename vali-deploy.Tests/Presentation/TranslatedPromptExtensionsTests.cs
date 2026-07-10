@@ -2,6 +2,7 @@ using vali_deploy.Presentation;
 
 namespace vali_deploy.Tests.Presentation;
 
+[Collection("Translator state")]
 public class TranslatedPromptExtensionsTests
 {
     [Fact]
