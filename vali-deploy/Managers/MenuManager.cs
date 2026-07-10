@@ -789,6 +789,12 @@ public static class MenuManager
                 .AddChoices(choices)
         );
 
+        if (action is "Docker Build" or "Docker Run" or "Push to Docker Hub")
+        {
+            AnsiConsole.Clear();
+            Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: $"{projectName} · {subProject.Name}");
+        }
+
         switch (action)
         {
             case "Generate Microsoft publish":
@@ -886,6 +892,9 @@ public static class MenuManager
     /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task ExecuteSubProjectPipelineAsync(Project project, SubProject subProject, string projectName, Domain.DeployConfig config)
     {
+        AnsiConsole.Clear();
+        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: $"{projectName} · {subProject.Name}");
+
         var environmentName = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("Elegí el entorno a desplegar:")
@@ -900,6 +909,9 @@ public static class MenuManager
             PauseForUserInput();
             return;
         }
+
+        AnsiConsole.Clear();
+        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: $"{projectName} · {subProject.Name} · {environmentName}");
 
         var subProjectPathFull = Path.Combine(project.Path, subProject.Path);
 
