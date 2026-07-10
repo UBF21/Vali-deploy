@@ -79,7 +79,7 @@ public static class PipelineEditorMenu
                 case "Edit Step Args":
                     var toEdit = AnsiConsole.Prompt(
                         new SelectionPrompt<DeployStep>().Title("Editar Args de cuál paso?").UseConverter(s => s.Name).AddChoices(steps));
-                    EditStepArgs(toEdit);
+                    EditStepArgs(toEdit, config.Projects, $"{subProject.Name} · {environmentName}");
                     repository.Save(config);
                     break;
                 case "Remove Step":
@@ -96,7 +96,7 @@ public static class PipelineEditorMenu
         }
     }
 
-    private static void EditStepArgs(DeployStep step)
+    private static void EditStepArgs(DeployStep step, IReadOnlyDictionary<string, Domain.Project> projects, string breadcrumb)
     {
         if (step.Args.Count == 0)
         {
@@ -107,6 +107,7 @@ public static class PipelineEditorMenu
         while (true)
         {
             AnsiConsole.Clear();
+            ShellRenderer.DrawHeader(projects, breadcrumb: breadcrumb);
             var table = new Table().AddColumns("Key", "Value");
             foreach (var kv in step.Args)
             {

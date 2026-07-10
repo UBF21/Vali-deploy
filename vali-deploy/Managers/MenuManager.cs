@@ -670,12 +670,14 @@ public static class MenuManager
         bool firstFileAdded = false;
 
         AnsiConsole.Clear();
+        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
         AnsiConsole.MarkupLine("[yellow]Adding files to omit (type 'done' to finish)[/]");
         while (addingFiles)
         {
             if (firstFileAdded)
             {
                 AnsiConsole.Clear();
+                Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
                 AnsiConsole.MarkupLine("[yellow]Adding files to omit (type 'done' to finish)[/]");
             }
 
@@ -715,6 +717,7 @@ public static class MenuManager
     private static Task RemoveFileToOmitFromPublishAsync(SubProject subProject)
     {
         AnsiConsole.Clear();
+        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
         if (subProject.OmitFiles.Count == 0)
         {
             AnsiConsole.MarkupLine("[yellow]No files to remove.[/]");
@@ -1100,6 +1103,7 @@ public static class MenuManager
         while (addingArgs)
         {
             AnsiConsole.Clear();
+            Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
             AnsiConsole.MarkupLine("[yellow]Adding a Docker argument[/]");
             AnsiConsole.WriteLine();
 
@@ -1123,6 +1127,7 @@ public static class MenuManager
                 if (firstArgAdded)
                 {
                     AnsiConsole.Clear(); // Limpia la pantalla después del primer argumento
+                    Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
                     AnsiConsole.MarkupLine($"[yellow]Adding {type.ToLower()}s (type 'done' to finish)[/]");
                 }
 
@@ -1191,6 +1196,7 @@ public static class MenuManager
     private static Task RemoveDockerArgsAsync(SubProject subProject)
     {
         AnsiConsole.Clear();
+        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
         var type = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("Select argument type to remove:")
@@ -1435,12 +1441,14 @@ public static class MenuManager
         bool firstArgAdded = false;
 
         AnsiConsole.Clear();
+        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
         AnsiConsole.MarkupLine("[yellow]Adding publish args (type 'done' to finish)[/]");
         while (addingArgs)
         {
             if (firstArgAdded)
             {
                 AnsiConsole.Clear();
+                Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
                 AnsiConsole.MarkupLine("[yellow]Adding publish args (type 'done' to finish)[/]");
             }
 
@@ -1484,6 +1492,7 @@ public static class MenuManager
     private static async Task RemovePublishArgsAsync(SubProject subProject)
     {
         AnsiConsole.Clear();
+        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: subProject.Name);
         if (subProject.PublishArgs == null || subProject.PublishArgs.Count == 0)
         {
             AnsiConsole.MarkupLine("[yellow]No publish args to remove.[/]");
