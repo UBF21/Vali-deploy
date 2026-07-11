@@ -72,18 +72,18 @@ public static class EnvironmentMenu
     private static bool ConfirmEnvironmentSummary(DeployEnvironment environment)
     {
         var table = new Table().AddColumns("Campo", "Valor");
-        table.AddRow("Nombre", environment.Name);
+        table.AddRow("Nombre", environment.Name.EscapeMarkup());
         table.AddRow("Servidor remoto", environment.Server is null ? "No" : "Sí");
         if (environment.Server is not null)
         {
-            table.AddRow("Rama por defecto", environment.DefaultBranch ?? "");
-            table.AddRow("Host", environment.Server.Host);
+            table.AddRow("Rama por defecto", (environment.DefaultBranch ?? "").EscapeMarkup());
+            table.AddRow("Host", environment.Server.Host.EscapeMarkup());
             table.AddRow("Puerto", environment.Server.Port.ToString());
-            table.AddRow("Usuario SSH", environment.Server.User);
+            table.AddRow("Usuario SSH", environment.Server.User.EscapeMarkup());
             table.AddRow("SO remoto", environment.Server.Os.ToString());
-            table.AddRow("Ruta clave privada", environment.Server.PrivateKeyPath);
-            table.AddRow("Passphrase env var", environment.Server.PassphraseEnvVar ?? "[grey](sin passphrase)[/]");
-            table.AddRow("Remote deploy path", environment.RemoteDeployPath ?? "[grey](convención por defecto)[/]");
+            table.AddRow("Ruta clave privada", environment.Server.PrivateKeyPath.EscapeMarkup());
+            table.AddRow("Passphrase env var", environment.Server.PassphraseEnvVar is null ? "[grey](sin passphrase)[/]" : environment.Server.PassphraseEnvVar.EscapeMarkup());
+            table.AddRow("Remote deploy path", environment.RemoteDeployPath is null ? "[grey](convención por defecto)[/]" : environment.RemoteDeployPath.EscapeMarkup());
         }
         AnsiConsole.Write(table);
 
