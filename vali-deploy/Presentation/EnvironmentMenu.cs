@@ -59,7 +59,34 @@ public static class EnvironmentMenu
                 : null;
         }
 
+        if (!ConfirmEnvironmentSummary(environment))
+        {
+            AnsiConsole.MarkupLine("[yellow]Cancelado. No se guardó ningún cambio.[/]");
+            return;
+        }
+
         config.Environments.Add(environment);
         repository.Save(config);
+    }
+
+    private static bool ConfirmEnvironmentSummary(DeployEnvironment environment)
+    {
+        var table = new Table().AddColumns("Campo", "Valor");
+        table.AddRow("Nombre", environment.Name);
+        table.AddRow("Servidor remoto", environment.Server is null ? "No" : "Sí");
+        if (environment.Server is not null)
+        {
+            table.AddRow("Rama por defecto", environment.DefaultBranch ?? "");
+            table.AddRow("Host", environment.Server.Host);
+            table.AddRow("Puerto", environment.Server.Port.ToString());
+            table.AddRow("Usuario SSH", environment.Server.User);
+            table.AddRow("SO remoto", environment.Server.Os.ToString());
+            table.AddRow("Ruta clave privada", environment.Server.PrivateKeyPath);
+            table.AddRow("Passphrase env var", environment.Server.PassphraseEnvVar ?? "[grey](sin passphrase)[/]");
+            table.AddRow("Remote deploy path", environment.RemoteDeployPath ?? "[grey](convención por defecto)[/]");
+        }
+        AnsiConsole.Write(table);
+
+        return AnsiConsole.Confirm("¿Guardar este entorno?", true);
     }
 }
