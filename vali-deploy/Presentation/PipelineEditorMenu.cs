@@ -18,7 +18,14 @@ public static class PipelineEditorMenu
         }
 
         var environmentName = AnsiConsole.Prompt(
-            new SelectionPrompt<string>().Title("Elegí el entorno:").AddChoices(config.Environments.Select(e => e.Name)));
+            new SelectionPrompt<string>().Title("Elegí el entorno:")
+                .AddChoices(config.Environments.Select(e => e.Name).Append("[seagreen1]Cancelar[/]")));
+
+        if (environmentName == "[seagreen1]Cancelar[/]")
+        {
+            return;
+        }
+
         var environment = config.Environments.First(e => e.Name == environmentName);
 
         // subProject es el parámetro provisto por el caller; config.Projects[...] viene de un repository.Load()
@@ -30,7 +37,19 @@ public static class PipelineEditorMenu
         if (!configSubProject.PipelinesByEnvironment.ContainsKey(environmentName))
         {
             var template = AnsiConsole.Prompt(
-                new SelectionPrompt<string>().Title("Plantilla inicial:").AddChoices("Docker Compose", "Publish/Zip"));
+                new SelectionPrompt<string>().Title("Plantilla inicial:").AddChoices("Docker Compose", "Publish/Zip", "Cancelar"));
+
+            if (template == "Cancelar")
+            {
+                return;
+            }
+
+            var confirmed = AnsiConsole.Confirm($"¿Crear el pipeline de '{configSubProject.Name}' en '{environmentName}' con la plantilla '{template}'?", true);
+            if (!confirmed)
+            {
+                AnsiConsole.MarkupLine("[yellow]Cancelado. No se creó ningún pipeline.[/]");
+                return;
+            }
 
             var factory = new PipelineTemplateFactory();
             configSubProject.PipelinesByEnvironment[environmentName] = template == "Docker Compose"
