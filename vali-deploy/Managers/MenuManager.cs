@@ -213,13 +213,27 @@ public static class MenuManager
     /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task AddProjectAsync()
     {
+        var config = _repository.Load();
+        if (config.Environments.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]Necesitás al menos un ambiente configurado antes de crear un proyecto.[/]");
+            await Presentation.EnvironmentMenu.StartAsync(_repository);
+
+            config = _repository.Load();
+            if (config.Environments.Count == 0)
+            {
+                AnsiConsole.MarkupLine("[yellow]Todavía no hay ningún ambiente. Cancelando alta de proyecto.[/]");
+                return;
+            }
+        }
+
         string? projectName = PromptProjectName();
         if (projectName == null) return;
 
         string? projectPath = PromptProjectPath();
         if (projectPath == null) return;
 
-        var subProjects = await PromptSubProjectsAsync(projectPath);
+        var subProjects = await PromptSubProjectsAsync(projectPath, projectName, config.Environments);
         if (subProjects == null) return;
 
         AddProjectToConfig(projectName, new Project { Path = projectPath, SubProjects = subProjects });
@@ -258,11 +272,14 @@ public static class MenuManager
     }
 
     /// <summary>
-    /// Prompts the user to add subprojects to a project, including their paths and optional Dockerfile paths.
+    /// Prompts the user to add subprojects to a project, including their paths, optional Dockerfile paths,
+    /// y el/los ambiente(s) a los que apunta cada uno (con su pipeline inicial ya armado).
     /// </summary>
     /// <param name="projectPath">The path of the parent project.</param>
+    /// <param name="projectName">The name of the parent project (usado para armar las plantillas de pipeline).</param>
+    /// <param name="environments">Ambientes disponibles en la config, para el selector de cada subproyecto.</param>
     /// <returns>A task that resolves to a list of subprojects, or null if the user cancels without adding any subprojects.</returns>
-    private static async Task<List<SubProject>?> PromptSubProjectsAsync(string projectPath)
+    private static async Task<List<SubProject>?> PromptSubProjectsAsync(string projectPath, string projectName, List<DeployEnvironment> environments)
     {
         var subProjects = new List<SubProject>();
         bool addMoreSubProjects = true;
@@ -287,33 +304,72 @@ public static class MenuManager
             string? subProjectPath = PromptSubProjectPath(projectPath);
             if (subProjectPath == null) continue;
 
-            string? dockerfilePath =
-                AnsiConsole.Ask<string>("Enter the Dockerfile path (relative to subproject path, or 'skip' to omit):");
-            if (dockerfilePath.ToLower() == "skip")
-            {
-                dockerfilePath = null;
-            }
-            else if (!string.IsNullOrEmpty(dockerfilePath))
-            {
-                string fullDockerfilePath = Path.Combine(projectPath, subProjectPath, dockerfilePath);
-                if (!File.Exists(fullDockerfilePath))
-                {
-                    AnsiConsole.MarkupLine(
-                        $"[yellow]:warning: Dockerfile not found at {Markup.Escape(fullDockerfilePath)}. Proceeding without Docker.[/]");
-                    dockerfilePath = null;
-                }
-            }
+            string? dockerfilePath = PromptDockerfilePath(projectPath, subProjectPath);
+            var pipelinesByEnvironment = PromptPipelinesForSubProject(projectName, subProjectName, environments);
 
             subProjects.Add(new SubProject
             {
                 Name = subProjectName,
                 Path = subProjectPath,
-                DockerfilePath = dockerfilePath
+                DockerfilePath = dockerfilePath,
+                PipelinesByEnvironment = pipelinesByEnvironment
             });
             AnsiConsole.MarkupLine($"[green]Subproject '{Markup.Escape(subProjectName)}' added.[/]");
         }
 
         return await Task.FromResult(subProjects.Count > 0 ? subProjects : null);
+    }
+
+    /// <summary>
+    /// Prompts for an optional Dockerfile path (relative to the subproject path). Returns null if the
+    /// user types 'skip' or if the resolved file doesn't exist (with a warning shown in that last case).
+    /// </summary>
+    private static string? PromptDockerfilePath(string projectPath, string subProjectPath)
+    {
+        var dockerfilePath =
+            AnsiConsole.Ask<string>("Enter the Dockerfile path (relative to subproject path, or 'skip' to omit):");
+        if (dockerfilePath.ToLower() == "skip") return null;
+        if (string.IsNullOrEmpty(dockerfilePath)) return dockerfilePath;
+
+        var fullDockerfilePath = Path.Combine(projectPath, subProjectPath, dockerfilePath);
+        if (File.Exists(fullDockerfilePath)) return dockerfilePath;
+
+        AnsiConsole.MarkupLine(
+            $"[yellow]:warning: Dockerfile not found at {Markup.Escape(fullDockerfilePath)}. Proceeding without Docker.[/]");
+        return null;
+    }
+
+    /// <summary>
+    /// Pide a qué ambiente(s) apunta un subproyecto nuevo (selección obligatoria, al menos 1) y arma
+    /// un pipeline inicial por cada uno (plantilla + path remoto confirmado), todo en memoria — no
+    /// persiste nada acá, el caller (<see cref="PromptSubProjectsAsync"/>) recién guarda al final.
+    /// </summary>
+    private static Dictionary<string, List<Domain.DeployStep>> PromptPipelinesForSubProject(string projectName, string subProjectName, List<DeployEnvironment> environments)
+    {
+        var environmentNames = AnsiConsole.Prompt(
+            new MultiSelectionPrompt<string>()
+                .Title($"¿A qué ambiente(s) apunta '{subProjectName}'? (barra espaciadora para elegir, Enter para confirmar)")
+                .AddChoices(environments.Select(e => e.Name)));
+
+        var pipelines = new Dictionary<string, List<Domain.DeployStep>>();
+        var factory = new Application.PipelineTemplateFactory();
+
+        foreach (var environmentName in environmentNames)
+        {
+            var environment = environments.First(e => e.Name == environmentName);
+
+            var template = AnsiConsole.Prompt(
+                new SelectionPrompt<string>().Title($"Plantilla inicial para '{environmentName}':").AddChoices("Docker Compose", "Publish/Zip"));
+
+            var defaultRemotePath = Application.PipelineTemplateFactory.ResolveDefaultRemoteDeployPath(projectName, subProjectName, environment);
+            var remoteDeployPath = AnsiConsole.Ask("Path remoto de deploy:", defaultRemotePath);
+
+            pipelines[environmentName] = template == "Docker Compose"
+                ? factory.CreateDockerComposeTemplate(projectName, subProjectName, remoteDeployPath)
+                : factory.CreatePublishZipTemplate(projectName, subProjectName, remoteDeployPath);
+        }
+
+        return pipelines;
     }
 
     /// <summary>
