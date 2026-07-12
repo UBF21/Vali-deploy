@@ -48,23 +48,52 @@ public static class PipelineEditorMenu
             var remoteDeployPath = AnsiConsole.Ask("Path remoto de deploy:", defaultRemotePath);
 
             var isDockerCompose = template == "Docker Compose";
-            var composeFileName = isDockerCompose ? AnsiConsole.Ask("Nombre del archivo docker-compose:", "docker-compose.yml") : null;
 
-            var confirmMessage = isDockerCompose
-                ? $"¿Crear el pipeline de '{configSubProject.Name}' en '{environmentName}' con la plantilla '{template}', path remoto '{remoteDeployPath}' y archivo '{composeFileName}'?"
-                : $"¿Crear el pipeline de '{configSubProject.Name}' en '{environmentName}' con la plantilla '{template}' y path remoto '{remoteDeployPath}'?";
-
-            var confirmed = AnsiConsole.Confirm(confirmMessage, true);
-            if (!confirmed)
+            if (isDockerCompose)
             {
-                AnsiConsole.MarkupLine("[yellow]Cancelado. No se creó ningún pipeline.[/]");
-                return;
-            }
+                var composeFileName = AnsiConsole.Ask("Nombre del archivo docker-compose:", "docker-compose.yml");
 
-            var factory = new PipelineTemplateFactory();
-            configSubProject.PipelinesByEnvironment[environmentName] = isDockerCompose
-                ? factory.CreateDockerComposeTemplate(projectName, configSubProject.Name, remoteDeployPath, composeFileName!, configSubProject.DockerRegistry)
-                : factory.CreatePublishZipTemplate(projectName, configSubProject.Name, remoteDeployPath, configSubProject.OmitFiles);
+                var dockerMode = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .Title("¿Cómo se buildea la imagen?")
+                        .AddChoices("Build directo en el servidor (sin registry)", "Push a un registry"));
+
+                var isRemoteBuild = dockerMode == "Build directo en el servidor (sin registry)";
+
+                var confirmMessage = isRemoteBuild
+                    ? $"¿Crear el pipeline de '{configSubProject.Name}' en '{environmentName}' con build directo en el servidor, path remoto '{remoteDeployPath}' y archivo '{composeFileName}'?"
+                    : $"¿Crear el pipeline de '{configSubProject.Name}' en '{environmentName}' con push a registry, path remoto '{remoteDeployPath}' y archivo '{composeFileName}'?";
+
+                var confirmed = AnsiConsole.Confirm(confirmMessage, true);
+                if (!confirmed)
+                {
+                    AnsiConsole.MarkupLine("[yellow]Cancelado. No se creó ningún pipeline.[/]");
+                    return;
+                }
+
+                var factory = new PipelineTemplateFactory();
+                if (isRemoteBuild)
+                {
+                    configSubProject.PipelinesByEnvironment[environmentName] = factory.CreateDockerComposeRemoteBuildTemplate(remoteDeployPath, composeFileName);
+                }
+                else
+                {
+                    configSubProject.DockerRegistry ??= ResolveDockerRegistry();
+                    configSubProject.PipelinesByEnvironment[environmentName] = factory.CreateDockerComposeTemplate(projectName, configSubProject.Name, remoteDeployPath, composeFileName, configSubProject.DockerRegistry);
+                }
+            }
+            else
+            {
+                var confirmed = AnsiConsole.Confirm($"¿Crear el pipeline de '{configSubProject.Name}' en '{environmentName}' con la plantilla '{template}' y path remoto '{remoteDeployPath}'?", true);
+                if (!confirmed)
+                {
+                    AnsiConsole.MarkupLine("[yellow]Cancelado. No se creó ningún pipeline.[/]");
+                    return;
+                }
+
+                var factory = new PipelineTemplateFactory();
+                configSubProject.PipelinesByEnvironment[environmentName] = factory.CreatePublishZipTemplate(projectName, configSubProject.Name, remoteDeployPath, configSubProject.OmitFiles);
+            }
 
             repository.Save(config);
         }
@@ -102,7 +131,9 @@ public static class PipelineEditorMenu
             {
                 case "Insert RawCommand":
                     var command = AnsiConsole.Ask<string>("Comando a insertar:");
-                    steps.Add(new DeployStep { Type = StepType.RawCommand, Name = command, Args = { ["Command"] = command } });
+                    var newStep = new DeployStep { Type = StepType.RawCommand, Name = command, Args = { ["Command"] = command } };
+                    var insertIndex = PromptInsertPosition(steps);
+                    steps.Insert(insertIndex, newStep);
                     repository.Save(config);
                     break;
                 case "Edit Step Args":
@@ -123,6 +154,19 @@ public static class PipelineEditorMenu
 
             await Task.CompletedTask;
         }
+    }
+
+    private static int PromptInsertPosition(List<DeployStep> steps)
+    {
+        if (steps.Count == 0)
+        {
+            return 0;
+        }
+
+        var choices = steps.Select(s => $"Antes de '{s.Name}'").Append("Al final").ToList();
+        var choice = AnsiConsole.Prompt(new SelectionPrompt<string>().Title("¿Dónde insertar?").AddChoices(choices));
+
+        return choice == "Al final" ? steps.Count : choices.IndexOf(choice);
     }
 
     private static void EditStepArgs(DeployStep step, IReadOnlyDictionary<string, Domain.Project> projects, string breadcrumb)
@@ -157,5 +201,22 @@ public static class PipelineEditorMenu
             var newValue = AnsiConsole.Ask<string>($"Nuevo valor para '{key}':", step.Args[key]);
             step.Args[key] = newValue;
         }
+    }
+
+    /// <summary>
+    /// Pide los datos de un DockerRegistry (host, usuario, token) — misma redacción que ya usa el
+    /// menú legacy "Push to registry" en MenuManager.cs, para no tener dos formas distintas de
+    /// preguntar lo mismo en el mismo CLI.
+    /// </summary>
+    private static DockerRegistry ResolveDockerRegistry()
+    {
+        var username = AnsiConsole.Ask<string>("Usuario del registry (ej. tu usuario de Docker Hub):");
+        var host = AnsiConsole.Ask("Host del registry (vacío = Docker Hub):", "");
+        var hasToken = AnsiConsole.Confirm("¿Vas a autenticarte con un token vía variable de entorno?");
+        string? tokenEnvVar = hasToken
+            ? AnsiConsole.Ask<string>("Nombre de la variable de entorno con el token:")
+            : null;
+
+        return new DockerRegistry { Host = host, Username = username, TokenEnvVar = tokenEnvVar };
     }
 }
