@@ -163,10 +163,18 @@ public static class PipelineEditorMenu
             return 0;
         }
 
-        var choices = steps.Select(s => $"Antes de '{s.Name}'").Append("Al final").ToList();
-        var choice = AnsiConsole.Prompt(new SelectionPrompt<string>().Title("¿Dónde insertar?").AddChoices(choices));
+        var choices = steps
+            .Select((s, i) => (Label: $"Antes de '{s.Name}'", Index: i))
+            .Append((Label: "Al final", Index: steps.Count))
+            .ToList();
 
-        return choice == "Al final" ? steps.Count : choices.IndexOf(choice);
+        var choice = AnsiConsole.Prompt(
+            new SelectionPrompt<(string Label, int Index)>()
+                .Title("¿Dónde insertar?")
+                .UseConverter(c => c.Label)
+                .AddChoices(choices));
+
+        return choice.Index;
     }
 
     private static void EditStepArgs(DeployStep step, IReadOnlyDictionary<string, Domain.Project> projects, string breadcrumb)

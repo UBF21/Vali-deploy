@@ -39,7 +39,7 @@ public class PipelineTemplateFactory
 
         return new List<DeployStep>
         {
-            new() { Type = StepType.SshCommand, Name = "Actualizar código", Args = { ["Command"] = $"cd {remoteDeployPath} && git pull" } },
+            new() { Type = StepType.SshCommand, Name = "Actualizar código", Args = { ["Command"] = $"cd \"{remoteDeployPath}\" && git pull" } },
             new() { Type = StepType.DockerComposeBuild, Name = "Compose build", Args = { ["ComposeFilePath"] = remoteComposeFilePath } },
             new() { Type = StepType.DockerComposeUp, Name = "Compose up", Args = { ["ComposeFilePath"] = remoteComposeFilePath } }
         };

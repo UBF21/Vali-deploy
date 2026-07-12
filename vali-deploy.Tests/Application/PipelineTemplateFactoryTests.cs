@@ -149,7 +149,7 @@ public class PipelineTemplateFactoryTests
         var steps = factory.CreateDockerComposeRemoteBuildTemplate(remoteDeployPath: "/opt/shop-api", composeFileName: "docker-compose.yml");
         var gitStep = steps.Single(s => s.Type == StepType.SshCommand);
 
-        Assert.Equal("cd /opt/shop-api && git pull", gitStep.Args["Command"]);
+        Assert.Equal("cd \"/opt/shop-api\" && git pull", gitStep.Args["Command"]);
     }
 
     [Fact]
