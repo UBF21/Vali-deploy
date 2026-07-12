@@ -4,10 +4,9 @@ namespace vali_deploy.Application;
 
 public class PipelineTemplateFactory
 {
-    public List<DeployStep> CreateDockerComposeTemplate(string projectName, string subProjectName, DeployEnvironment environment, DockerRegistry? dockerRegistry = null)
+    public List<DeployStep> CreateDockerComposeTemplate(string projectName, string subProjectName, string remoteDeployPath, DockerRegistry? dockerRegistry = null)
     {
         var imageTag = $"{projectName.ToLower()}-{subProjectName.ToLower()}:latest";
-        var remoteDeployPath = environment.RemoteDeployPath ?? $"/opt/{projectName.ToLower()}-{subProjectName.ToLower()}";
         var remoteComposeFilePath = $"{remoteDeployPath}/compose.yml";
         var registryTag = BuildRegistryTag(dockerRegistry, imageTag);
 
@@ -41,19 +40,23 @@ public class PipelineTemplateFactory
         return $"{prefix}/{imageTag}";
     }
 
-    public List<DeployStep> CreatePublishZipTemplate(string projectName, string subProjectName, List<string>? omitFiles = null)
+    public List<DeployStep> CreatePublishZipTemplate(string projectName, string subProjectName, string remoteDeployPath, List<string>? omitFiles = null)
     {
         var omitFilesArg = omitFiles is { Count: > 0 } ? string.Join("|", omitFiles) : "";
+        var remoteZipPath = $"{remoteDeployPath}/{subProjectName.ToLower()}.zip";
 
         return new List<DeployStep>
         {
             new() { Type = StepType.GitCheckout, Name = "Checkout" },
             new() { Type = StepType.ZipPublishOutput, Name = "Build, publish y comprimir output", Args = { ["OmitFiles"] = omitFilesArg } },
-            new() { Type = StepType.CopyToRemote, Name = "Copiar zip al remoto" },
+            new() { Type = StepType.CopyToRemote, Name = "Copiar zip al remoto", Args = { ["RemotePath"] = remoteZipPath } },
             new() { Type = StepType.SshCommand, Name = "Extraer zip", Args = { ["Command"] = "" } },
             new() { Type = StepType.SshCommand, Name = "Reiniciar servicio/IIS pool", Args = { ["Command"] = "" } }
         };
     }
+
+    public static string ResolveDefaultRemoteDeployPath(string projectName, string subProjectName, DeployEnvironment environment) =>
+        environment.RemoteDeployPath ?? $"/opt/{projectName.ToLower()}-{subProjectName.ToLower()}";
 
     public List<DeployStep> CreateLocalPublishTemplate(List<string> omitFiles) =>
         new()

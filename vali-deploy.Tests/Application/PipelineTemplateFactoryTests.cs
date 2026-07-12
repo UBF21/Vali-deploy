@@ -13,7 +13,7 @@ public class PipelineTemplateFactoryTests
     {
         var factory = new PipelineTemplateFactory();
 
-        var steps = factory.CreateDockerComposeTemplate(projectName: "shop", subProjectName: "api", environment: Environment());
+        var steps = factory.CreateDockerComposeTemplate(projectName: "shop", subProjectName: "api", remoteDeployPath: "/opt/shop-api");
 
         Assert.Equal(new[]
         {
@@ -27,7 +27,7 @@ public class PipelineTemplateFactoryTests
     {
         var factory = new PipelineTemplateFactory();
 
-        var steps = factory.CreatePublishZipTemplate(projectName: "shop", subProjectName: "api");
+        var steps = factory.CreatePublishZipTemplate(projectName: "shop", subProjectName: "api", remoteDeployPath: "/opt/shop-api");
 
         Assert.Equal(new[]
         {
@@ -41,36 +41,52 @@ public class PipelineTemplateFactoryTests
     {
         var factory = new PipelineTemplateFactory();
 
-        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", environment: Environment());
+        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", remoteDeployPath: "/opt/shop-api");
         var buildStep = steps.Single(s => s.Type == StepType.DockerBuild);
 
         Assert.Equal("shop-api:latest", buildStep.Args["ImageTag"]);
     }
 
     [Fact]
-    public void DockerCompose_template_uses_opt_convention_for_remote_path_by_default()
+    public void DockerCompose_template_uses_the_given_remoteDeployPath_verbatim()
     {
         var factory = new PipelineTemplateFactory();
 
-        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", environment: Environment());
+        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", remoteDeployPath: "/srv/apps/legacy-name");
         var copyStep = steps.Single(s => s.Type == StepType.CopyToRemote);
         var pullStep = steps.Single(s => s.Type == StepType.DockerComposePull);
-
-        Assert.Equal("/opt/shop-api/compose.yml", copyStep.Args["RemotePath"]);
-        Assert.Equal("/opt/shop-api/compose.yml", pullStep.Args["ComposeFilePath"]);
-    }
-
-    [Fact]
-    public void DockerCompose_template_uses_environment_RemoteDeployPath_override_when_set()
-    {
-        var factory = new PipelineTemplateFactory();
-
-        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", environment: Environment("/srv/apps/legacy-name"));
-        var copyStep = steps.Single(s => s.Type == StepType.CopyToRemote);
         var upStep = steps.Single(s => s.Type == StepType.DockerComposeUp);
 
         Assert.Equal("/srv/apps/legacy-name/compose.yml", copyStep.Args["RemotePath"]);
+        Assert.Equal("/srv/apps/legacy-name/compose.yml", pullStep.Args["ComposeFilePath"]);
         Assert.Equal("/srv/apps/legacy-name/compose.yml", upStep.Args["ComposeFilePath"]);
+    }
+
+    [Fact]
+    public void PublishZip_template_sets_RemotePath_on_CopyToRemote_step()
+    {
+        var factory = new PipelineTemplateFactory();
+
+        var steps = factory.CreatePublishZipTemplate(projectName: "Shop", subProjectName: "Api", remoteDeployPath: "/opt/shop-api");
+        var copyStep = steps.Single(s => s.Type == StepType.CopyToRemote);
+
+        Assert.Equal("/opt/shop-api/api.zip", copyStep.Args["RemotePath"]);
+    }
+
+    [Fact]
+    public void ResolveDefaultRemoteDeployPath_uses_opt_convention_when_environment_has_no_override()
+    {
+        var path = PipelineTemplateFactory.ResolveDefaultRemoteDeployPath("Shop", "Api", Environment());
+
+        Assert.Equal("/opt/shop-api", path);
+    }
+
+    [Fact]
+    public void ResolveDefaultRemoteDeployPath_uses_environment_RemoteDeployPath_when_set()
+    {
+        var path = PipelineTemplateFactory.ResolveDefaultRemoteDeployPath("Shop", "Api", Environment("/srv/apps/legacy-name"));
+
+        Assert.Equal("/srv/apps/legacy-name", path);
     }
 
     [Fact]
@@ -78,7 +94,7 @@ public class PipelineTemplateFactoryTests
     {
         var factory = new PipelineTemplateFactory();
 
-        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", environment: Environment());
+        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", remoteDeployPath: "/opt/shop-api");
         var pushStep = steps.Single(s => s.Type == StepType.DockerPush);
 
         Assert.Equal("shop-api:latest", pushStep.Args["RegistryTag"]);
@@ -90,7 +106,7 @@ public class PipelineTemplateFactoryTests
         var factory = new PipelineTemplateFactory();
         var registry = new DockerRegistry { Host = "", Username = "myuser" };
 
-        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", environment: Environment(), dockerRegistry: registry);
+        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", remoteDeployPath: "/opt/shop-api", dockerRegistry: registry);
         var pushStep = steps.Single(s => s.Type == StepType.DockerPush);
 
         Assert.Equal("myuser/shop-api:latest", pushStep.Args["RegistryTag"]);
@@ -102,7 +118,7 @@ public class PipelineTemplateFactoryTests
         var factory = new PipelineTemplateFactory();
         var registry = new DockerRegistry { Host = "ghcr.io", Username = "myorg", TokenEnvVar = "GHCR_TOKEN" };
 
-        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", environment: Environment(), dockerRegistry: registry);
+        var steps = factory.CreateDockerComposeTemplate(projectName: "Shop", subProjectName: "Api", remoteDeployPath: "/opt/shop-api", dockerRegistry: registry);
         var pushStep = steps.Single(s => s.Type == StepType.DockerPush);
 
         Assert.Equal("ghcr.io/myorg/shop-api:latest", pushStep.Args["RegistryTag"]);
