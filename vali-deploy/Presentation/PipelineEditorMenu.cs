@@ -47,7 +47,14 @@ public static class PipelineEditorMenu
             var defaultRemotePath = PipelineTemplateFactory.ResolveDefaultRemoteDeployPath(projectName, configSubProject.Name, environment);
             var remoteDeployPath = AnsiConsole.Ask("Path remoto de deploy:", defaultRemotePath);
 
-            var confirmed = AnsiConsole.Confirm($"¿Crear el pipeline de '{configSubProject.Name}' en '{environmentName}' con la plantilla '{template}' y path remoto '{remoteDeployPath}'?", true);
+            var isDockerCompose = template == "Docker Compose";
+            var composeFileName = isDockerCompose ? AnsiConsole.Ask("Nombre del archivo docker-compose:", "docker-compose.yml") : null;
+
+            var confirmMessage = isDockerCompose
+                ? $"¿Crear el pipeline de '{configSubProject.Name}' en '{environmentName}' con la plantilla '{template}', path remoto '{remoteDeployPath}' y archivo '{composeFileName}'?"
+                : $"¿Crear el pipeline de '{configSubProject.Name}' en '{environmentName}' con la plantilla '{template}' y path remoto '{remoteDeployPath}'?";
+
+            var confirmed = AnsiConsole.Confirm(confirmMessage, true);
             if (!confirmed)
             {
                 AnsiConsole.MarkupLine("[yellow]Cancelado. No se creó ningún pipeline.[/]");
@@ -55,8 +62,8 @@ public static class PipelineEditorMenu
             }
 
             var factory = new PipelineTemplateFactory();
-            configSubProject.PipelinesByEnvironment[environmentName] = template == "Docker Compose"
-                ? factory.CreateDockerComposeTemplate(projectName, configSubProject.Name, remoteDeployPath, configSubProject.DockerRegistry)
+            configSubProject.PipelinesByEnvironment[environmentName] = isDockerCompose
+                ? factory.CreateDockerComposeTemplate(projectName, configSubProject.Name, remoteDeployPath, composeFileName!, configSubProject.DockerRegistry)
                 : factory.CreatePublishZipTemplate(projectName, configSubProject.Name, remoteDeployPath, configSubProject.OmitFiles);
 
             repository.Save(config);

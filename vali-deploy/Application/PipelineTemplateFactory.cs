@@ -4,10 +4,10 @@ namespace vali_deploy.Application;
 
 public class PipelineTemplateFactory
 {
-    public List<DeployStep> CreateDockerComposeTemplate(string projectName, string subProjectName, string remoteDeployPath, DockerRegistry? dockerRegistry = null)
+    public List<DeployStep> CreateDockerComposeTemplate(string projectName, string subProjectName, string remoteDeployPath, string composeFileName, DockerRegistry? dockerRegistry = null)
     {
         var imageTag = $"{projectName.ToLower()}-{subProjectName.ToLower()}:latest";
-        var remoteComposeFilePath = $"{remoteDeployPath}/compose.yml";
+        var remoteComposeFilePath = $"{remoteDeployPath}/{composeFileName}";
         var registryTag = BuildRegistryTag(dockerRegistry, imageTag);
 
         return new List<DeployStep>
@@ -26,7 +26,7 @@ public class PipelineTemplateFactory
                     ["RegistryTokenEnvVar"] = dockerRegistry?.TokenEnvVar ?? ""
                 }
             },
-            new() { Type = StepType.CopyToRemote, Name = "Copiar compose.yml", Args = { ["LocalPath"] = "compose.yml", ["RemotePath"] = remoteComposeFilePath } },
+            new() { Type = StepType.CopyToRemote, Name = $"Copiar {composeFileName}", Args = { ["LocalPath"] = composeFileName, ["RemotePath"] = remoteComposeFilePath } },
             new() { Type = StepType.DockerComposePull, Name = "Compose pull", Args = { ["ComposeFilePath"] = remoteComposeFilePath } },
             new() { Type = StepType.DockerComposeUp, Name = "Compose up", Args = { ["ComposeFilePath"] = remoteComposeFilePath } },
             new() { Type = StepType.DockerImagePrune, Name = "Limpiar imágenes viejas", Args = { ["ImageNameFilter"] = $"{projectName.ToLower()}-{subProjectName.ToLower()}" } }

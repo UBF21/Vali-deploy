@@ -31,6 +31,10 @@ public class CopyToRemoteExecutor : IStepExecutor
         {
             throw new InvalidOperationException($"El paso '{step.Name}' ({step.Type}) requiere Args[\"LocalPath\"] o un step anterior que produzca un artifact (ej. ZipPublishOutput).");
         }
+        if (!Path.IsPathRooted(localPath))
+        {
+            localPath = Path.Combine(context.ProjectPath, localPath);
+        }
 
         if (!step.Args.TryGetValue("RemotePath", out var remotePath))
         {

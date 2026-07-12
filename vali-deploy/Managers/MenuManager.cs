@@ -342,9 +342,15 @@ public static class MenuManager
             var defaultRemotePath = Application.PipelineTemplateFactory.ResolveDefaultRemoteDeployPath(projectName, subProjectName, environment);
             var remoteDeployPath = AnsiConsole.Ask("Path remoto de deploy:", defaultRemotePath);
 
-            pipelines[environmentName] = template == "Docker Compose"
-                ? factory.CreateDockerComposeTemplate(projectName, subProjectName, remoteDeployPath)
-                : factory.CreatePublishZipTemplate(projectName, subProjectName, remoteDeployPath);
+            if (template == "Docker Compose")
+            {
+                var composeFileName = AnsiConsole.Ask("Nombre del archivo docker-compose:", "docker-compose.yml");
+                pipelines[environmentName] = factory.CreateDockerComposeTemplate(projectName, subProjectName, remoteDeployPath, composeFileName);
+            }
+            else
+            {
+                pipelines[environmentName] = factory.CreatePublishZipTemplate(projectName, subProjectName, remoteDeployPath);
+            }
         }
 
         return pipelines;

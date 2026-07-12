@@ -46,6 +46,28 @@ public class CopyToRemoteExecutorTests
     }
 
     [Fact]
+    public async Task Resolves_relative_LocalPath_against_ProjectPath()
+    {
+        var expectedLocalPath = Path.Combine("/tmp/proj", "compose.yml");
+        var sshFactory = new Mock<ISshClientFactory>();
+        sshFactory
+            .Setup(f => f.UploadFileAsync(It.IsAny<RemoteServer>(), expectedLocalPath, "/opt/app/compose.yml"))
+            .Returns(Task.CompletedTask);
+
+        var executor = new CopyToRemoteExecutor(sshFactory.Object);
+        var step = new DeployStep
+        {
+            Type = StepType.CopyToRemote, Name = "copy compose",
+            Args = { ["LocalPath"] = "compose.yml", ["RemotePath"] = "/opt/app/compose.yml" }
+        };
+
+        var result = await executor.ExecuteAsync(step, Context());
+
+        Assert.True(result.Success);
+        sshFactory.Verify(f => f.UploadFileAsync(It.IsAny<RemoteServer>(), expectedLocalPath, "/opt/app/compose.yml"), Times.Once);
+    }
+
+    [Fact]
     public async Task Reports_failure_when_upload_throws()
     {
         var sshFactory = new Mock<ISshClientFactory>();
