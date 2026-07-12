@@ -285,14 +285,15 @@ public static class MenuManager
         const string subProjectPath = ".";
 
         string? dockerfilePath = PromptDockerfilePath(projectPath, subProjectPath);
-        var pipelinesByEnvironment = PromptPipelinesForSubProject(projectName, projectName, environments);
+        var (pipelinesByEnvironment, dockerRegistry) = PromptPipelinesForSubProject(projectName, projectName, environments);
 
         var subProject = new SubProject
         {
             Name = projectName,
             Path = subProjectPath,
             DockerfilePath = dockerfilePath,
-            PipelinesByEnvironment = pipelinesByEnvironment
+            PipelinesByEnvironment = pipelinesByEnvironment,
+            DockerRegistry = dockerRegistry
         };
 
         return await Task.FromResult(new List<SubProject> { subProject });
@@ -322,7 +323,7 @@ public static class MenuManager
     /// un pipeline inicial por cada uno (plantilla + path remoto confirmado), todo en memoria — no
     /// persiste nada acá, el caller (<see cref="PromptSubProjectsAsync"/>) recién guarda al final.
     /// </summary>
-    private static Dictionary<string, List<Domain.DeployStep>> PromptPipelinesForSubProject(string projectName, string subProjectName, List<DeployEnvironment> environments)
+    private static (Dictionary<string, List<Domain.DeployStep>> Pipelines, DockerRegistry? DockerRegistry) PromptPipelinesForSubProject(string projectName, string subProjectName, List<DeployEnvironment> environments)
     {
         var environmentNames = AnsiConsole.Prompt(
             new MultiSelectionPrompt<string>()
@@ -330,6 +331,7 @@ public static class MenuManager
                 .AddChoices(environments.Select(e => e.Name)));
 
         var pipelines = new Dictionary<string, List<Domain.DeployStep>>();
+        DockerRegistry? dockerRegistry = null;
         var factory = new Application.PipelineTemplateFactory();
 
         foreach (var environmentName in environmentNames)
@@ -345,7 +347,21 @@ public static class MenuManager
             if (template == "Docker Compose")
             {
                 var composeFileName = AnsiConsole.Ask("Nombre del archivo docker-compose:", "docker-compose.yml");
-                pipelines[environmentName] = factory.CreateDockerComposeTemplate(projectName, subProjectName, remoteDeployPath, composeFileName);
+
+                var dockerMode = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .Title("¿Cómo se buildea la imagen?")
+                        .AddChoices("Build directo en el servidor (sin registry)", "Push a un registry"));
+
+                if (dockerMode == "Build directo en el servidor (sin registry)")
+                {
+                    pipelines[environmentName] = factory.CreateDockerComposeRemoteBuildTemplate(remoteDeployPath, composeFileName);
+                }
+                else
+                {
+                    dockerRegistry ??= ResolveDockerRegistry();
+                    pipelines[environmentName] = factory.CreateDockerComposeTemplate(projectName, subProjectName, remoteDeployPath, composeFileName, dockerRegistry);
+                }
             }
             else
             {
@@ -353,7 +369,24 @@ public static class MenuManager
             }
         }
 
-        return pipelines;
+        return (pipelines, dockerRegistry);
+    }
+
+    /// <summary>
+    /// Pide los datos de un DockerRegistry (host, usuario, token) — misma redacción que ya usa el
+    /// menú legacy "Push to registry" (línea ~901), para no tener dos formas distintas de preguntar
+    /// lo mismo en el mismo CLI.
+    /// </summary>
+    private static DockerRegistry ResolveDockerRegistry()
+    {
+        var username = AnsiConsole.Ask<string>("Usuario del registry (ej. tu usuario de Docker Hub):");
+        var host = AnsiConsole.Ask("Host del registry (vacío = Docker Hub):", "");
+        var hasToken = AnsiConsole.Confirm("¿Vas a autenticarte con un token vía variable de entorno?");
+        string? tokenEnvVar = hasToken
+            ? AnsiConsole.Ask<string>("Nombre de la variable de entorno con el token:")
+            : null;
+
+        return new DockerRegistry { Host = host, Username = username, TokenEnvVar = tokenEnvVar };
     }
 
     /// <summary>
