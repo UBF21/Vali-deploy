@@ -85,6 +85,22 @@ public class PipelineExecutionView
         }
 
         AnsiConsole.Write(table);
+        RenderFailureDetails(result);
+    }
+
+    private static void RenderFailureDetails(PipelineResult result)
+    {
+        foreach (var stepResult in result.Steps.Where(s => !s.Success))
+        {
+            var detail = !string.IsNullOrWhiteSpace(stepResult.Error) ? stepResult.Error : stepResult.Output;
+            if (string.IsNullOrWhiteSpace(detail))
+            {
+                continue;
+            }
+
+            AnsiConsole.MarkupLine($"[red]— {Markup.Escape(stepResult.Step.Name)} —[/]");
+            AnsiConsole.WriteLine(detail);
+        }
     }
 
     private static string DescribeEstado(StepResult stepResult)
