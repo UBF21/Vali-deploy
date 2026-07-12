@@ -11,6 +11,7 @@ public enum StepType
     DockerLoad,
     DockerImagePrune,
     DockerComposePull,
+    DockerComposeBuild,
     DockerComposeUp,
     DockerComposeDown,
     ZipPublishOutput,
