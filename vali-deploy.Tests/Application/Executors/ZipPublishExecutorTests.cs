@@ -347,4 +347,41 @@ public class ZipPublishExecutorTests
         Assert.False(result.Success);
         Assert.Equal(1, result.ExitCode);
     }
+
+    [Fact]
+    public async Task Sets_context_LastArtifactPath_to_the_created_zip_path_on_success()
+    {
+        var publishFolder = CreateFakePublishFolder(out var projectPath);
+        var processRunner = SuccessfulBuildRunner(projectPath);
+
+        var executor = new ZipPublishExecutor(processRunner.Object);
+        var step = new DeployStep { Type = StepType.ZipPublishOutput, Name = "zip" };
+        var context = Context(projectPath, "sub");
+
+        var result = await executor.ExecuteAsync(step, context);
+
+        Assert.True(result.Success);
+        var zipFiles = Directory.EnumerateFiles(Path.GetDirectoryName(publishFolder)!, "sub-*.zip").ToList();
+        Assert.Single(zipFiles);
+        Assert.Equal(zipFiles[0], context.LastArtifactPath);
+    }
+
+    [Fact]
+    public async Task Does_not_set_context_LastArtifactPath_when_build_fails()
+    {
+        var _ = CreateFakePublishFolder(out var projectPath);
+        var processRunner = new Mock<IProcessRunner>();
+        processRunner
+            .Setup(p => p.RunAsync(It.IsAny<string>(), projectPath, null, null))
+            .ReturnsAsync(new ProcessRunResult(1, "", "build error"));
+
+        var executor = new ZipPublishExecutor(processRunner.Object);
+        var step = new DeployStep { Type = StepType.ZipPublishOutput, Name = "zip" };
+        var context = Context(projectPath);
+
+        var result = await executor.ExecuteAsync(step, context);
+
+        Assert.False(result.Success);
+        Assert.Null(context.LastArtifactPath);
+    }
 }

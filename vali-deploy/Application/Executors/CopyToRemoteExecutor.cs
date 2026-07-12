@@ -22,9 +22,14 @@ public class CopyToRemoteExecutor : IStepExecutor
             return StepResultFactory.NoServer(step, context, stopwatch.Elapsed);
         }
 
-        if (!step.Args.TryGetValue("LocalPath", out var localPath))
+        var localPath = step.Args.GetValueOrDefault("LocalPath");
+        if (string.IsNullOrEmpty(localPath))
         {
-            throw new InvalidOperationException($"El paso '{step.Name}' ({step.Type}) requiere Args[\"LocalPath\"].");
+            localPath = context.LastArtifactPath;
+        }
+        if (string.IsNullOrEmpty(localPath))
+        {
+            throw new InvalidOperationException($"El paso '{step.Name}' ({step.Type}) requiere Args[\"LocalPath\"] o un step anterior que produzca un artifact (ej. ZipPublishOutput).");
         }
 
         if (!step.Args.TryGetValue("RemotePath", out var remotePath))

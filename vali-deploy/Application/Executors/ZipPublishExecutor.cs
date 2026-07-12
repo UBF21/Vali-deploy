@@ -49,6 +49,7 @@ public class ZipPublishExecutor : IStepExecutor
         var omitFiles = ParseOmitFiles(step);
         var zipPath = CreateZip(publishFolder, context.SubProjectName, omitFiles);
         combinedOutput.AppendLine($"Comprimido en: {zipPath}");
+        context.LastArtifactPath = zipPath;
 
         stopwatch.Stop();
         return SuccessResult(step, combinedOutput.ToString(), stopwatch.Elapsed);

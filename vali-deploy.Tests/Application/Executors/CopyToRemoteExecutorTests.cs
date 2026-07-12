@@ -88,7 +88,30 @@ public class CopyToRemoteExecutorTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_throws_clear_error_when_LocalPath_arg_missing()
+    public async Task ExecuteAsync_falls_back_to_context_LastArtifactPath_when_LocalPath_arg_missing()
+    {
+        var sshFactory = new Mock<ISshClientFactory>();
+        sshFactory
+            .Setup(f => f.UploadFileAsync(It.IsAny<RemoteServer>(), "/tmp/proj/sub-20260101.zip", "/opt/app/sub.zip"))
+            .Returns(Task.CompletedTask);
+
+        var executor = new CopyToRemoteExecutor(sshFactory.Object);
+        var step = new DeployStep
+        {
+            Type = StepType.CopyToRemote, Name = "copy zip",
+            Args = { ["RemotePath"] = "/opt/app/sub.zip" }
+        };
+        var context = Context();
+        context.LastArtifactPath = "/tmp/proj/sub-20260101.zip";
+
+        var result = await executor.ExecuteAsync(step, context);
+
+        Assert.True(result.Success);
+        sshFactory.Verify(f => f.UploadFileAsync(It.IsAny<RemoteServer>(), "/tmp/proj/sub-20260101.zip", "/opt/app/sub.zip"), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_throws_when_LocalPath_arg_missing_and_no_LastArtifactPath_in_context()
     {
         var sshFactory = new Mock<ISshClientFactory>();
         var executor = new CopyToRemoteExecutor(sshFactory.Object);
@@ -100,7 +123,7 @@ public class CopyToRemoteExecutorTests
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => executor.ExecuteAsync(step, Context()));
 
-        Assert.Equal("El paso 'copy compose' (CopyToRemote) requiere Args[\"LocalPath\"].", ex.Message);
+        Assert.Equal("El paso 'copy compose' (CopyToRemote) requiere Args[\"LocalPath\"] o un step anterior que produzca un artifact (ej. ZipPublishOutput).", ex.Message);
         sshFactory.Verify(f => f.UploadFileAsync(It.IsAny<RemoteServer>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
