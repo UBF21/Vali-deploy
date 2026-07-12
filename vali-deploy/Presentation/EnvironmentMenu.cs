@@ -54,7 +54,8 @@ public static class EnvironmentMenu
                     ? AnsiConsole.Ask<string>("Nombre de la variable de entorno con la passphrase:")
                     : null
             };
-            environment.RemoteDeployPath = AnsiConsole.Confirm("¿El path de deploy remoto no sigue la convención /opt/{proyecto}-{subproyecto}?")
+            environment.RemoteDeployPath = AnsiConsole.Confirm(
+                "¿Querés fijar un path de deploy remoto por defecto para este ambiente? (si decís que no, se usa la convención /opt/{proyecto}-{subproyecto}, que igual podés sobreescribir después por cada subproyecto)", false)
                 ? AnsiConsole.Ask<string>("Path de deploy remoto (ej. /srv/apps/legacy-name):")
                 : null;
         }
