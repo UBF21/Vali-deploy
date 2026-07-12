@@ -129,6 +129,43 @@ public class PipelineTemplateFactoryTests
     }
 
     [Fact]
+    public void CreateDockerComposeRemoteBuildTemplate_follows_step_order()
+    {
+        var factory = new PipelineTemplateFactory();
+
+        var steps = factory.CreateDockerComposeRemoteBuildTemplate(remoteDeployPath: "/opt/shop-api", composeFileName: "docker-compose.yml");
+
+        Assert.Equal(new[]
+        {
+            StepType.SshCommand, StepType.DockerComposeBuild, StepType.DockerComposeUp
+        }, steps.Select(s => s.Type));
+    }
+
+    [Fact]
+    public void CreateDockerComposeRemoteBuildTemplate_builds_git_pull_command_with_remoteDeployPath()
+    {
+        var factory = new PipelineTemplateFactory();
+
+        var steps = factory.CreateDockerComposeRemoteBuildTemplate(remoteDeployPath: "/opt/shop-api", composeFileName: "docker-compose.yml");
+        var gitStep = steps.Single(s => s.Type == StepType.SshCommand);
+
+        Assert.Equal("cd /opt/shop-api && git pull", gitStep.Args["Command"]);
+    }
+
+    [Fact]
+    public void CreateDockerComposeRemoteBuildTemplate_sets_ComposeFilePath_using_remoteDeployPath_and_composeFileName()
+    {
+        var factory = new PipelineTemplateFactory();
+
+        var steps = factory.CreateDockerComposeRemoteBuildTemplate(remoteDeployPath: "/opt/shop-api", composeFileName: "docker-compose.yml");
+        var buildStep = steps.Single(s => s.Type == StepType.DockerComposeBuild);
+        var upStep = steps.Single(s => s.Type == StepType.DockerComposeUp);
+
+        Assert.Equal("/opt/shop-api/docker-compose.yml", buildStep.Args["ComposeFilePath"]);
+        Assert.Equal("/opt/shop-api/docker-compose.yml", upStep.Args["ComposeFilePath"]);
+    }
+
+    [Fact]
     public void LocalPublish_template_is_a_single_ZipPublishOutput_step()
     {
         var factory = new PipelineTemplateFactory();

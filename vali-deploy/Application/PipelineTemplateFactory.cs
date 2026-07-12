@@ -33,6 +33,18 @@ public class PipelineTemplateFactory
         };
     }
 
+    public List<DeployStep> CreateDockerComposeRemoteBuildTemplate(string remoteDeployPath, string composeFileName)
+    {
+        var remoteComposeFilePath = $"{remoteDeployPath}/{composeFileName}";
+
+        return new List<DeployStep>
+        {
+            new() { Type = StepType.SshCommand, Name = "Actualizar código", Args = { ["Command"] = $"cd {remoteDeployPath} && git pull" } },
+            new() { Type = StepType.DockerComposeBuild, Name = "Compose build", Args = { ["ComposeFilePath"] = remoteComposeFilePath } },
+            new() { Type = StepType.DockerComposeUp, Name = "Compose up", Args = { ["ComposeFilePath"] = remoteComposeFilePath } }
+        };
+    }
+
     private static string BuildRegistryTag(DockerRegistry? registry, string imageTag)
     {
         if (registry == null || string.IsNullOrEmpty(registry.Username)) return imageTag;
