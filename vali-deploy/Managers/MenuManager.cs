@@ -234,7 +234,6 @@ public static class MenuManager
         if (projectPath == null) return;
 
         var subProjects = await PromptSubProjectsAsync(projectPath, projectName, config.Environments);
-        if (subProjects == null) return;
 
         AddProjectToConfig(projectName, new Project { Path = projectPath, SubProjects = subProjects });
         AnsiConsole.MarkupLine($"[green]Project '{Markup.Escape(projectName)}' added successfully![/]");
@@ -272,52 +271,31 @@ public static class MenuManager
     }
 
     /// <summary>
-    /// Prompts the user to add subprojects to a project, including their paths, optional Dockerfile paths,
-    /// y el/los ambiente(s) a los que apunta cada uno (con su pipeline inicial ya armado).
+    /// Arma el único SubProyecto de un Proyecto nuevo, sin preguntar nombre ni path propios: el
+    /// SubProyecto asume el mismo nombre que el Proyecto y su path es "." (mismo directorio). El
+    /// SubProyecto sigue existiendo como concepto interno (pipeline, ambientes, Docker) pero deja de
+    /// ser una decisión que el usuario tiene que tomar al crear un proyecto de un solo servicio.
     /// </summary>
     /// <param name="projectPath">The path of the parent project.</param>
-    /// <param name="projectName">The name of the parent project (usado para armar las plantillas de pipeline).</param>
-    /// <param name="environments">Ambientes disponibles en la config, para el selector de cada subproyecto.</param>
-    /// <returns>A task that resolves to a list of subprojects, or null if the user cancels without adding any subprojects.</returns>
-    private static async Task<List<SubProject>?> PromptSubProjectsAsync(string projectPath, string projectName, List<DeployEnvironment> environments)
+    /// <param name="projectName">The name of the parent project (se reusa como nombre del subproyecto).</param>
+    /// <param name="environments">Ambientes disponibles en la config, para el selector del subproyecto.</param>
+    /// <returns>A task that resolves to a single-item list with the auto-completed subproject.</returns>
+    private static async Task<List<SubProject>> PromptSubProjectsAsync(string projectPath, string projectName, List<DeployEnvironment> environments)
     {
-        var subProjects = new List<SubProject>();
-        bool addMoreSubProjects = true;
+        const string subProjectPath = ".";
 
-        while (addMoreSubProjects)
+        string? dockerfilePath = PromptDockerfilePath(projectPath, subProjectPath);
+        var pipelinesByEnvironment = PromptPipelinesForSubProject(projectName, projectName, environments);
+
+        var subProject = new SubProject
         {
-            var subProjectName =
-                AnsiConsole.Ask<string>("Enter the subproject name (or type 'done' to return to main menu):");
-            if (subProjectName.ToLower() == "done")
-            {
-                if (subProjects.Count == 0)
-                {
-                    AnsiConsole.MarkupLine(
-                        "[red]:warning: You must add at least one subproject. Returning to main menu without saving...[/]");
-                    return null;
-                }
+            Name = projectName,
+            Path = subProjectPath,
+            DockerfilePath = dockerfilePath,
+            PipelinesByEnvironment = pipelinesByEnvironment
+        };
 
-                addMoreSubProjects = false;
-                continue;
-            }
-
-            string? subProjectPath = PromptSubProjectPath(projectPath);
-            if (subProjectPath == null) continue;
-
-            string? dockerfilePath = PromptDockerfilePath(projectPath, subProjectPath);
-            var pipelinesByEnvironment = PromptPipelinesForSubProject(projectName, subProjectName, environments);
-
-            subProjects.Add(new SubProject
-            {
-                Name = subProjectName,
-                Path = subProjectPath,
-                DockerfilePath = dockerfilePath,
-                PipelinesByEnvironment = pipelinesByEnvironment
-            });
-            AnsiConsole.MarkupLine($"[green]Subproject '{Markup.Escape(subProjectName)}' added.[/]");
-        }
-
-        return await Task.FromResult(subProjects.Count > 0 ? subProjects : null);
+        return await Task.FromResult(new List<SubProject> { subProject });
     }
 
     /// <summary>
@@ -370,25 +348,6 @@ public static class MenuManager
         }
 
         return pipelines;
-    }
-
-    /// <summary>
-    /// Prompts the user to enter a subproject path and validates its existence.
-    /// </summary>
-    /// <param name="projectPath">The path of the parent project.</param>
-    /// <returns>The subproject path as a string, or null if the user cancels.</returns>
-    private static string? PromptSubProjectPath(string projectPath)
-    {
-        while (true)
-        {
-            var subPath = AnsiConsole.Ask<string>("Enter the subproject path (or type 'done' to skip):");
-            if (subPath.ToLower() == "done") return null;
-            var fullPath = Path.Combine(projectPath, subPath);
-            if (Directory.Exists(fullPath)) return subPath;
-            AnsiConsole.MarkupLine(
-                $"[red]:cross_mark: The subproject path does not exist: {Markup.Escape(subPath)} [/]");
-            AnsiConsole.MarkupLine("Please enter a valid path.");
-        }
     }
 
     /// <summary>
