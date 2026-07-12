@@ -44,7 +44,10 @@ public static class PipelineEditorMenu
                 return;
             }
 
-            var confirmed = AnsiConsole.Confirm($"¿Crear el pipeline de '{configSubProject.Name}' en '{environmentName}' con la plantilla '{template}'?", true);
+            var defaultRemotePath = PipelineTemplateFactory.ResolveDefaultRemoteDeployPath(projectName, configSubProject.Name, environment);
+            var remoteDeployPath = AnsiConsole.Ask("Path remoto de deploy:", defaultRemotePath);
+
+            var confirmed = AnsiConsole.Confirm($"¿Crear el pipeline de '{configSubProject.Name}' en '{environmentName}' con la plantilla '{template}' y path remoto '{remoteDeployPath}'?", true);
             if (!confirmed)
             {
                 AnsiConsole.MarkupLine("[yellow]Cancelado. No se creó ningún pipeline.[/]");
@@ -53,8 +56,8 @@ public static class PipelineEditorMenu
 
             var factory = new PipelineTemplateFactory();
             configSubProject.PipelinesByEnvironment[environmentName] = template == "Docker Compose"
-                ? factory.CreateDockerComposeTemplate(projectName, configSubProject.Name, environment, configSubProject.DockerRegistry)
-                : factory.CreatePublishZipTemplate(projectName, configSubProject.Name, configSubProject.OmitFiles);
+                ? factory.CreateDockerComposeTemplate(projectName, configSubProject.Name, remoteDeployPath, configSubProject.DockerRegistry)
+                : factory.CreatePublishZipTemplate(projectName, configSubProject.Name, remoteDeployPath, configSubProject.OmitFiles);
 
             repository.Save(config);
         }
