@@ -79,6 +79,21 @@ public class DockerComposeExecutorsTests
     }
 
     [Fact]
+    public async Task Build_runs_docker_compose_build_on_remote()
+    {
+        var sshFactory = new Mock<ISshClientFactory>();
+        sshFactory
+            .Setup(f => f.RunCommandAsync(It.IsAny<RemoteServer>(), "docker compose -f \"/opt/app/compose.yml\" build"))
+            .ReturnsAsync(new ProcessRunResult(0, "", ""));
+
+        var executor = new DockerComposeBuildExecutor(sshFactory.Object);
+        Assert.Equal(StepType.DockerComposeBuild, executor.Handles);
+
+        var result = await executor.ExecuteAsync(ComposeStep(StepType.DockerComposeBuild), Context());
+        Assert.True(result.Success);
+    }
+
+    [Fact]
     public async Task Pull_fails_fast_when_environment_has_no_remote_server()
     {
         var executor = new DockerComposePullExecutor(new Mock<ISshClientFactory>().Object);
@@ -106,6 +121,17 @@ public class DockerComposeExecutorsTests
         var executor = new DockerComposeDownExecutor(new Mock<ISshClientFactory>().Object);
 
         var result = await executor.ExecuteAsync(ComposeStep(StepType.DockerComposeDown), ContextWithoutServer());
+
+        Assert.False(result.Success);
+        Assert.Contains("RemoteServer", result.Error);
+    }
+
+    [Fact]
+    public async Task Build_fails_fast_when_environment_has_no_remote_server()
+    {
+        var executor = new DockerComposeBuildExecutor(new Mock<ISshClientFactory>().Object);
+
+        var result = await executor.ExecuteAsync(ComposeStep(StepType.DockerComposeBuild), ContextWithoutServer());
 
         Assert.False(result.Success);
         Assert.Contains("RemoteServer", result.Error);
@@ -147,6 +173,19 @@ public class DockerComposeExecutorsTests
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => executor.ExecuteAsync(step, Context()));
 
         Assert.Equal("El paso 'DockerComposeDown' (DockerComposeDown) requiere Args[\"ComposeFilePath\"].", ex.Message);
+        sshFactory.Verify(f => f.RunCommandAsync(It.IsAny<RemoteServer>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Build_ExecuteAsync_throws_clear_error_when_ComposeFilePath_arg_missing()
+    {
+        var sshFactory = new Mock<ISshClientFactory>();
+        var executor = new DockerComposeBuildExecutor(sshFactory.Object);
+        var step = ComposeStepWithoutArgs(StepType.DockerComposeBuild);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => executor.ExecuteAsync(step, Context()));
+
+        Assert.Equal("El paso 'DockerComposeBuild' (DockerComposeBuild) requiere Args[\"ComposeFilePath\"].", ex.Message);
         sshFactory.Verify(f => f.RunCommandAsync(It.IsAny<RemoteServer>(), It.IsAny<string>()), Times.Never);
     }
 }

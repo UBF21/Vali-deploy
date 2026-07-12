@@ -38,6 +38,7 @@ public static class CompositionRoot
             new DockerLoadExecutor(sshClientFactory),
             new CopyToRemoteExecutor(sshClientFactory),
             new DockerComposePullExecutor(sshClientFactory),
+            new DockerComposeBuildExecutor(sshClientFactory),
             new DockerComposeUpExecutor(sshClientFactory),
             new DockerComposeDownExecutor(sshClientFactory)
         };
