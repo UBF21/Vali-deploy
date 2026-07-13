@@ -59,10 +59,6 @@ public static class MenuManager
                     UpdateProjectsAndChart();
                     break;
 
-                case "Remove Subprojects":
-                    await RemoveSubprojectsAsync();
-                    UpdateProjectsAndChart();
-                    break;
                 case "Manage Docker Projects":
                     await ManageDockerProjectsAsync();
                     UpdateProjectsAndChart();
@@ -122,7 +118,7 @@ public static class MenuManager
                 .Title(Presentation.Translator.T("What do you want to do?"))
                 .UseConverter(Presentation.Translator.T)
                 .AddChoices("Add Project", "Remove Project", "Show Projects", "Configure Publish File Omissions",
-                    "Remove Subprojects", "Manage Docker Projects", "Manage Publish Arguments", "Manage Environments",
+                    "Manage Docker Projects", "Manage Publish Arguments", "Manage Environments",
                     "View Deploy History", "View Environments Tree", "Language / Idioma", "[seagreen1]Exit[/]")
         );
     }
@@ -339,7 +335,13 @@ public static class MenuManager
             var environment = environments.First(e => e.Name == environmentName);
 
             var template = AnsiConsole.Prompt(
-                new SelectionPrompt<string>().Title($"Plantilla inicial para '{environmentName}':").AddChoices("Docker Compose", "Publish/Zip"));
+                new SelectionPrompt<string>().Title($"Plantilla inicial para '{environmentName}':")
+                    .AddChoices("Docker Compose", "Publish/Zip", "[seagreen1]Cancelar este ambiente[/]"));
+
+            if (template == "[seagreen1]Cancelar este ambiente[/]")
+            {
+                continue;
+            }
 
             var defaultRemotePath = Application.PipelineTemplateFactory.ResolveDefaultRemoteDeployPath(projectName, subProjectName, environment);
             var remoteDeployPath = AnsiConsole.Ask("Path remoto de deploy:", defaultRemotePath);
@@ -360,6 +362,12 @@ public static class MenuManager
                 else
                 {
                     dockerRegistry ??= ResolveDockerRegistry();
+                    if (dockerRegistry == null)
+                    {
+                        AnsiConsole.MarkupLine($"[yellow]Cancelado. No se configuró el registry para '{environmentName}'.[/]");
+                        continue;
+                    }
+
                     pipelines[environmentName] = factory.CreateDockerComposeTemplate(projectName, subProjectName, remoteDeployPath, composeFileName, dockerRegistry);
                 }
             }
@@ -374,11 +382,15 @@ public static class MenuManager
 
     /// <summary>
     /// Pide los datos de un DockerRegistry (host, usuario, token) — misma redacción que ya usa el
-    /// menú legacy "Push to registry" (línea ~901), para no tener dos formas distintas de preguntar
-    /// lo mismo en el mismo CLI.
+    /// menú legacy "Push to registry". Devuelve null si el usuario decide no configurarlo ahora.
     /// </summary>
-    private static DockerRegistry ResolveDockerRegistry()
+    private static DockerRegistry? ResolveDockerRegistry()
     {
+        if (!AnsiConsole.Confirm("¿Configurar el registry ahora?", true))
+        {
+            return null;
+        }
+
         var username = AnsiConsole.Ask<string>("Usuario del registry (ej. tu usuario de Docker Hub):");
         var host = AnsiConsole.Ask("Host del registry (vacío = Docker Hub):", "");
         var hasToken = AnsiConsole.Confirm("¿Vas a autenticarte con un token vía variable de entorno?");
@@ -419,92 +431,6 @@ public static class MenuManager
             RemoveProjectFromConfig(projectName);
             AnsiConsole.MarkupLine($"[green]Project '{Markup.Escape(projectName)}' removed successfully.[/]");
         }
-    }
-
-    /// <summary>
-    /// Allows the user to remove subprojects from a selected project.
-    /// </summary>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    private static async Task RemoveSubprojectsAsync()
-    {
-        while (true)
-        {
-            if (_projects.Count == 0)
-            {
-                AnsiConsole.MarkupLine("[yellow]:warning: No projects found.[/]");
-                PauseForUserInput();
-                await Task.CompletedTask;
-                return;
-            }
-
-            var projectName = PromptProjectSelectionForSubprojectRemoval();
-            if (projectName == "[seagreen1]Back to Main Menu[/]") return;
-
-            var project = _projects[projectName];
-            if (project.SubProjects.Count == 0)
-            {
-                AnsiConsole.MarkupLine(
-                    $"[yellow]:warning: No subprojects found for project '{Markup.Escape(projectName)}'.[/]");
-                PauseForUserInput();
-                continue;
-            }
-
-            var subProjectsToRemove = PromptMultipleSubProjectSelection(project, projectName);
-            if (subProjectsToRemove == null || !subProjectsToRemove.Any()) continue;
-
-            foreach (var subProjectName in subProjectsToRemove)
-            {
-                var subProject = project.SubProjects.FirstOrDefault(sp => sp.Name == subProjectName);
-                if (subProject != null)
-                {
-                    project.SubProjects.Remove(subProject);
-                    AnsiConsole.MarkupLine(
-                        $"[green]Subproject '{Markup.Escape(subProjectName)}' removed from project '{Markup.Escape(projectName)}'.[/]");
-                }
-            }
-
-            PersistProjects();
-            PauseForUserInput();
-            break;
-        }
-    }
-
-    /// <summary>
-    /// Prompts the user to select a project for subproject removal.
-    /// </summary>
-    /// <returns>The selected project name, or "[seagreen1]Back to Main Menu[/]" if the user cancels.</returns>
-    private static string PromptProjectSelectionForSubprojectRemoval()
-    {
-        return AnsiConsole.Prompt(
-            new SelectionPrompt<string>()
-                .Title(Presentation.Translator.T("Select a project to remove subprojects from"))
-                .UseConverter(Presentation.Translator.T)
-                .AddChoices(_projects.Keys.Append("[seagreen1]Back to Main Menu[/]"))
-        );
-    }
-
-    /// <summary>
-    /// Prompts the user to select multiple subprojects to remove from a project.
-    /// </summary>
-    /// <param name="project">The project containing the subprojects.</param>
-    /// <param name="projectName">The name of the project.</param>
-    /// <returns>A list of subproject names to remove, or null if the user cancels.</returns>
-    private static List<string>? PromptMultipleSubProjectSelection(Project project, string projectName)
-    {
-        var selectedSubProjects = AnsiConsole.Prompt(
-            new MultiSelectionPrompt<string>()
-                .Title(string.Format(
-                    Presentation.Translator.T("Select subprojects to remove from project '{0}' (use spacebar to select, Enter to confirm)"),
-                    projectName))
-                .UseConverter(Presentation.Translator.T)
-                .NotRequired()
-                .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[seagreen1]Cancel[/]"))
-        );
-
-        if (selectedSubProjects.Contains("[seagreen1]Cancel[/]") || selectedSubProjects.Count == 0)
-            return null;
-
-        return selectedSubProjects;
     }
 
     /// <summary>
@@ -666,6 +592,11 @@ public static class MenuManager
             return null;
         }
 
+        if (project.SubProjects.Count == 1)
+        {
+            return project.SubProjects[0];
+        }
+
         var subProjectName = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .TranslatedFormat("Select a subproject for project '{0}' to manage files to omit", projectName)
@@ -743,7 +674,7 @@ public static class MenuManager
             }
         }
 
-        DisplayMainMenu($"{projectName} · {subProject.Name}");
+        DisplayMainMenu(projectName);
         AnsiConsole.Write(panel);
         AnsiConsole.WriteLine();
     }
@@ -859,44 +790,44 @@ public static class MenuManager
     {
         if (subProject == null) return;
 
-        // subProject viene de MenuManager._projects (grafo cargado en memoria vía _repository.Load()), que puede
-        // estar desactualizado respecto de lo que haya en disco (p. ej. si el usuario recién usó "Edit Pipeline",
-        // que persiste vía su propio ProjectRepository.Load()/Save() sobre un grafo de objetos distinto).
-        // Resolvemos la instancia real desde un repository.Load() fresco para que el guard y la ejecución del
-        // pipeline reflejen el estado actual en disco, no la copia stale en memoria.
         var repository = CompositionRoot.CreateProjectRepository();
         var config = repository.Load();
         var configSubProject = config.Projects[projectName].SubProjects.First(s => s.Name == subProject.Name);
 
-        if (configSubProject.PipelinesByEnvironment.Count > 0)
-        {
-            await ExecuteSubProjectPipelineAsync(project, configSubProject, projectName, config);
-            return;
-        }
-
         string subProjectPathFull = Path.Combine(project.Path, subProject.Path);
         string imageTag = $"{projectName.ToLower()}-{subProject.Name.ToLower()}:latest";
 
-        var choices = new List<string> { "Generate Microsoft publish", "Edit Pipeline", "[seagreen1]Back to Subprojects[/]" };
+        var choices = new List<string>();
+        if (configSubProject.PipelinesByEnvironment.Count > 0)
+        {
+            choices.Add("Run Pipeline");
+        }
+        choices.Add("Generate Microsoft publish");
         if (!string.IsNullOrEmpty(subProject.DockerfilePath))
         {
-            choices.InsertRange(1, _dockerActions);
+            choices.AddRange(_dockerActions);
         }
+        choices.Add("Edit Pipeline");
+        choices.Add("[seagreen1]Back to Projects[/]");
 
         var action = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
-                .TranslatedFormat("What do you want to do with subproject '{0}'?", subProject.Name)
+                .Translated("What do you want to do?")
                 .AddChoices(choices)
         );
 
         if (action == "Generate Microsoft publish" || _dockerActions.Contains(action))
         {
             AnsiConsole.Clear();
-            Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: $"{projectName} · {subProject.Name}");
+            Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: projectName);
         }
 
         switch (action)
         {
+            case "Run Pipeline":
+                await ExecuteSubProjectPipelineAsync(project, configSubProject, projectName, config);
+                break;
+
             case "Generate Microsoft publish":
                 await RunLocalPipelineAsync(project, subProject, projectName,
                     new Application.PipelineTemplateFactory().CreateLocalPublishTemplate(subProject.OmitFiles));
@@ -931,14 +862,14 @@ public static class MenuManager
                 {
                     if (subProject.DockerRegistry == null || string.IsNullOrEmpty(subProject.DockerRegistry.Username))
                     {
-                        var username = AnsiConsole.Ask<string>("Usuario del registry (ej. tu usuario de Docker Hub):");
-                        var host = AnsiConsole.Ask("Host del registry (vacío = Docker Hub):", "");
-                        var hasToken = AnsiConsole.Confirm("¿Vas a autenticarte con un token vía variable de entorno?");
-                        string? tokenEnvVar = hasToken
-                            ? AnsiConsole.Ask<string>("Nombre de la variable de entorno con el token:")
-                            : null;
+                        var registry = ResolveDockerRegistry();
+                        if (registry == null)
+                        {
+                            AnsiConsole.MarkupLine("[yellow]Cancelado. No se configuró el registry.[/]");
+                            break;
+                        }
 
-                        subProject.DockerRegistry = new DockerRegistry { Host = host, Username = username, TokenEnvVar = tokenEnvVar };
+                        subProject.DockerRegistry = registry;
                         PersistProjects();
                     }
 
@@ -948,7 +879,7 @@ public static class MenuManager
 
                 break;
 
-            case "[seagreen1]Back to Subprojects[/]":
+            case "[seagreen1]Back to Projects[/]":
                 return;
         }
     }
@@ -1006,7 +937,7 @@ public static class MenuManager
     private static async Task ExecuteSubProjectPipelineAsync(Project project, SubProject subProject, string projectName, Domain.DeployConfig config)
     {
         AnsiConsole.Clear();
-        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: $"{projectName} · {subProject.Name}");
+        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: projectName);
 
         var environmentName = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
@@ -1024,7 +955,7 @@ public static class MenuManager
         }
 
         AnsiConsole.Clear();
-        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: $"{projectName} · {subProject.Name} · {environmentName}");
+        Presentation.ShellRenderer.DrawHeader(_projects, breadcrumb: $"{projectName} · {environmentName}");
 
         var subProjectPathFull = Path.Combine(project.Path, subProject.Path);
 
@@ -1106,15 +1037,23 @@ public static class MenuManager
                 return;
             }
 
-            var subProjectName = AnsiConsole.Prompt(
-                new SelectionPrompt<string>()
-                    .TranslatedFormat("Select a Docker subproject in '{0}'", projectName)
-                    .AddChoices(dockerSubProjects.Select(sp => sp.Name).Append("[seagreen1]Back to Projects[/]"))
-            );
+            SubProject subProject;
+            if (dockerSubProjects.Count == 1)
+            {
+                subProject = dockerSubProjects[0];
+            }
+            else
+            {
+                var subProjectName = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .TranslatedFormat("Select a Docker subproject in '{0}'", projectName)
+                        .AddChoices(dockerSubProjects.Select(sp => sp.Name).Append("[seagreen1]Back to Projects[/]"))
+                );
 
-            if (subProjectName == "[seagreen1]Back to Projects[/]") return;
+                if (subProjectName == "[seagreen1]Back to Projects[/]") return;
+                subProject = dockerSubProjects.First(sp => sp.Name == subProjectName);
+            }
 
-            var subProject = dockerSubProjects.First(sp => sp.Name == subProjectName);
             await ManageDockerArgsAsync(subProject, projectName);
         }
     }
@@ -1196,7 +1135,7 @@ public static class MenuManager
             }
         }
 
-        DisplayMainMenu($"{projectName} · {subProject.Name}");
+        DisplayMainMenu(projectName);
         AnsiConsole.Write(panel);
         AnsiConsole.WriteLine();
     }
@@ -1443,15 +1382,23 @@ public static class MenuManager
                 return;
             }
 
-            var subProjectName = AnsiConsole.Prompt(
-                new SelectionPrompt<string>()
-                    .TranslatedFormat("Select a subproject in '{0}' to manage publish arguments", projectName)
-                    .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[seagreen1]Back to Projects[/]"))
-            );
+            SubProject subProject;
+            if (project.SubProjects.Count == 1)
+            {
+                subProject = project.SubProjects[0];
+            }
+            else
+            {
+                var subProjectName = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .TranslatedFormat("Select a subproject in '{0}' to manage publish arguments", projectName)
+                        .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[seagreen1]Back to Projects[/]"))
+                );
 
-            if (subProjectName == "[seagreen1]Back to Projects[/]") return;
+                if (subProjectName == "[seagreen1]Back to Projects[/]") return;
+                subProject = project.SubProjects.First(sp => sp.Name == subProjectName);
+            }
 
-            var subProject = project.SubProjects.First(sp => sp.Name == subProjectName);
             await ManagePublishArgsAsync(subProject, projectName);
         }
     }
@@ -1533,7 +1480,7 @@ public static class MenuManager
             }
         }
 
-        DisplayMainMenu($"{projectName} · {subProject.Name}");
+        DisplayMainMenu(projectName);
         AnsiConsole.Write(panel);
         AnsiConsole.WriteLine();
     }
