@@ -41,6 +41,9 @@ public class DockerBuildExecutorTests
         var result = await executor.ExecuteAsync(step, Context());
 
         Assert.True(result.Success);
+        Assert.Equal(
+            "docker build -f \"/tmp/proj/Dockerfile\" -t proj-sub:latest --label project=proj-sub \"/tmp/proj\"",
+            result.Command);
     }
 
     [Fact]
@@ -69,6 +72,9 @@ public class DockerBuildExecutorTests
         var result = await executor.ExecuteAsync(step, Context());
 
         Assert.True(result.Success);
+        Assert.Equal(
+            "docker build -f \"/tmp/proj/Dockerfile\" -t proj-sub:latest --build-arg KEY=VALUE --label project=proj-sub \"/tmp/proj\"",
+            result.Command);
     }
 
     [Fact]
@@ -92,6 +98,7 @@ public class DockerBuildExecutorTests
         var result = await executor.ExecuteAsync(step, Context());
 
         Assert.True(result.Success);
+        Assert.Contains("--label project=proj-sub", result.Command);
         processRunner.Verify(p => p.RunAsync(
             It.Is<string>(c => c.Contains("--label project=proj-sub")),
             "/tmp/proj",

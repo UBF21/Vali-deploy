@@ -24,7 +24,7 @@ public class DockerImagePruneExecutor : IStepExecutor
         return new StepResult
         {
             Step = step, Success = run.ExitCode == 0, ExitCode = run.ExitCode,
-            Output = run.StdOut, Error = run.StdErr, Duration = stopwatch.Elapsed
+            Output = run.StdOut, Error = run.StdErr, Command = command, Duration = stopwatch.Elapsed
         };
     }
 }

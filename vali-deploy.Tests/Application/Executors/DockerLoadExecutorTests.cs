@@ -38,6 +38,7 @@ public class DockerLoadExecutorTests
         var result = await executor.ExecuteAsync(step, Context());
 
         Assert.True(result.Success);
+        Assert.Equal("docker load -i \"/opt/app/image.tar\"", result.Command);
     }
 
     [Fact]

@@ -18,13 +18,14 @@ public class DockerSaveExecutor : IStepExecutor
         var imageTag = step.Args["ImageTag"];
         var outputTarPath = step.Args["OutputTarPath"];
 
-        var run = await _processRunner.RunAsync($"docker save -o \"{outputTarPath}\" {imageTag}", context.ProjectPath);
+        var command = $"docker save -o \"{outputTarPath}\" {imageTag}";
+        var run = await _processRunner.RunAsync(command, context.ProjectPath);
         stopwatch.Stop();
 
         return new StepResult
         {
             Step = step, Success = run.ExitCode == 0, ExitCode = run.ExitCode,
-            Output = run.StdOut, Error = run.StdErr, Duration = stopwatch.Elapsed
+            Output = run.StdOut, Error = run.StdErr, Command = command, Duration = stopwatch.Elapsed
         };
     }
 }

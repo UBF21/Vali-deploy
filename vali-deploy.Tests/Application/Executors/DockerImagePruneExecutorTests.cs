@@ -40,5 +40,6 @@ public class DockerImagePruneExecutorTests
         var result = await executor.ExecuteAsync(step, Context());
 
         Assert.True(result.Success);
+        Assert.Equal("docker image prune -f --filter \"label=project=proj-sub\"", result.Command);
     }
 }

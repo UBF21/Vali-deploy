@@ -20,7 +20,7 @@ public class DockerBuildExecutor : IStepExecutor
         var run = await _processRunner.RunAsync(command, context.ProjectPath, new Dictionary<string, string> { ["DOCKER_BUILDKIT"] = "1" });
         stopwatch.Stop();
 
-        return BuildResult(step, run, stopwatch.Elapsed);
+        return BuildResult(step, run, command, stopwatch.Elapsed);
     }
 
     private static string BuildCommand(DeployStep step, StepExecutionContext context)
@@ -34,13 +34,14 @@ public class DockerBuildExecutor : IStepExecutor
         return $"docker build -f \"{dockerfile}\" -t {imageTag}{buildArgsSuffix} --label project={projectLabel} \"{context.ProjectPath}\"";
     }
 
-    private static StepResult BuildResult(DeployStep step, ProcessRunResult run, TimeSpan duration) => new()
+    private static StepResult BuildResult(DeployStep step, ProcessRunResult run, string command, TimeSpan duration) => new()
     {
         Step = step,
         Success = run.ExitCode == 0,
         ExitCode = run.ExitCode,
         Output = run.StdOut,
         Error = run.StdErr,
+        Command = command,
         Duration = duration
     };
 }

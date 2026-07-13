@@ -26,9 +26,10 @@ public class DockerComposeBuildExecutor : IStepExecutor
             throw new InvalidOperationException($"El paso '{step.Name}' ({step.Type}) requiere Args[\"ComposeFilePath\"].");
         }
 
-        var run = await _sshClientFactory.RunCommandAsync(context.Environment.Server, $"docker compose -f \"{composeFilePath}\" build");
+        var command = $"docker compose -f \"{composeFilePath}\" build";
+        var run = await _sshClientFactory.RunCommandAsync(context.Environment.Server, command);
         stopwatch.Stop();
 
-        return StepResultFactory.FromProcessResult(step, run, stopwatch.Elapsed);
+        return StepResultFactory.FromProcessResult(step, run, command, stopwatch.Elapsed);
     }
 }

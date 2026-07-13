@@ -38,5 +38,6 @@ public class DockerSaveExecutorTests
         var result = await executor.ExecuteAsync(step, Context());
 
         Assert.True(result.Success);
+        Assert.Equal("docker save -o \"/tmp/proj/image.tar\" proj-sub:latest", result.Command);
     }
 }

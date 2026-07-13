@@ -46,6 +46,7 @@ public class DockerComposeExecutorsTests
 
         var result = await executor.ExecuteAsync(ComposeStep(StepType.DockerComposePull), Context());
         Assert.True(result.Success);
+        Assert.Equal("docker compose -f \"/opt/app/compose.yml\" pull", result.Command);
     }
 
     [Fact]
@@ -61,6 +62,7 @@ public class DockerComposeExecutorsTests
 
         var result = await executor.ExecuteAsync(ComposeStep(StepType.DockerComposeUp), Context());
         Assert.True(result.Success);
+        Assert.Equal("docker compose -f \"/opt/app/compose.yml\" up -d", result.Command);
     }
 
     [Fact]
@@ -76,6 +78,7 @@ public class DockerComposeExecutorsTests
 
         var result = await executor.ExecuteAsync(ComposeStep(StepType.DockerComposeDown), Context());
         Assert.True(result.Success);
+        Assert.Equal("docker compose -f \"/opt/app/compose.yml\" down", result.Command);
     }
 
     [Fact]
@@ -91,6 +94,7 @@ public class DockerComposeExecutorsTests
 
         var result = await executor.ExecuteAsync(ComposeStep(StepType.DockerComposeBuild), Context());
         Assert.True(result.Success);
+        Assert.Equal("docker compose -f \"/opt/app/compose.yml\" build", result.Command);
     }
 
     [Fact]

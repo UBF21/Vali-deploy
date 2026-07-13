@@ -27,9 +27,10 @@ public class DockerLoadExecutor : IStepExecutor
             throw new InvalidOperationException($"El paso '{step.Name}' ({step.Type}) requiere Args[\"RemoteTarPath\"].");
         }
 
-        var run = await _sshClientFactory.RunCommandAsync(context.Environment.Server, $"docker load -i \"{remoteTarPath}\"");
+        var command = $"docker load -i \"{remoteTarPath}\"";
+        var run = await _sshClientFactory.RunCommandAsync(context.Environment.Server, command);
         stopwatch.Stop();
 
-        return StepResultFactory.FromProcessResult(step, run, stopwatch.Elapsed);
+        return StepResultFactory.FromProcessResult(step, run, command, stopwatch.Elapsed);
     }
 }
