@@ -45,14 +45,15 @@ public class CopyToRemoteExecutor : IStepExecutor
         {
             await _sshClientFactory.UploadFileAsync(context.Environment.Server, localPath, remotePath);
             stopwatch.Stop();
-            return new StepResult { Step = step, Success = true, ExitCode = 0, Duration = stopwatch.Elapsed };
+            return new StepResult { Step = step, Success = true, ExitCode = 0, Command = $"upload {localPath} → {remotePath}", Duration = stopwatch.Elapsed };
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
             return new StepResult
             {
-                Step = step, Success = false, ExitCode = -1, Error = ex.Message, Duration = stopwatch.Elapsed
+                Step = step, Success = false, ExitCode = -1, Error = ex.Message,
+                Command = $"upload {localPath} → {remotePath}", Duration = stopwatch.Elapsed
             };
         }
     }

@@ -42,6 +42,7 @@ public class CopyToRemoteExecutorTests
         var result = await executor.ExecuteAsync(step, Context());
 
         Assert.True(result.Success);
+        Assert.Equal("upload /tmp/proj/compose.yml → /opt/app/compose.yml", result.Command);
         sshFactory.Verify(f => f.UploadFileAsync(It.IsAny<RemoteServer>(), "/tmp/proj/compose.yml", "/opt/app/compose.yml"), Times.Once);
     }
 
@@ -86,6 +87,7 @@ public class CopyToRemoteExecutorTests
 
         Assert.False(result.Success);
         Assert.Contains("connection reset", result.Error);
+        Assert.Equal("upload /tmp/proj/compose.yml → /opt/app/compose.yml", result.Command);
     }
 
     [Fact]

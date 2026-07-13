@@ -35,6 +35,7 @@ public class DockerRunExecutor : IStepExecutor
             Success = exitCode == 0,
             ExitCode = exitCode,
             Output = "(sesión interactiva — salida no capturada)",
+            Command = command,
             Duration = stopwatch.Elapsed
         };
     }
