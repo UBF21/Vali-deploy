@@ -73,12 +73,13 @@ public class PipelineExecutionView
 
     private static void RenderSummaryTable(PipelineResult result)
     {
-        var table = new Table().AddColumns("Paso", "Estado", "Duración", "Exit Code");
+        var table = new Table().AddColumns("Paso", "Comando", "Estado", "Duración", "Exit Code");
 
         foreach (var stepResult in result.Steps)
         {
             table.AddRow(
                 stepResult.Step.Name,
+                string.IsNullOrEmpty(stepResult.Command) ? "[grey](sin comando)[/]" : Markup.Escape(stepResult.Command),
                 DescribeEstado(stepResult),
                 stepResult.Duration.ToString(@"mm\:ss"),
                 stepResult.ExitCode.ToString());
