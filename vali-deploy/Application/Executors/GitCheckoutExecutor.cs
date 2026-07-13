@@ -30,24 +30,26 @@ public class GitCheckoutExecutor : IStepExecutor
             return InvalidBranchResult(step, branch, stopwatch.Elapsed);
         }
 
-        var checkoutResult = await _processRunner.RunAsync($"git checkout {branch}", context.ProjectPath);
+        var checkoutCommand = $"git checkout {branch}";
+        var checkoutResult = await _processRunner.RunAsync(checkoutCommand, context.ProjectPath);
 
         if (checkoutResult.ExitCode != 0)
         {
             stopwatch.Stop();
-            return BuildResult(step, checkoutResult, checkoutResult.StdOut, stopwatch.Elapsed);
+            return BuildResult(step, checkoutResult, checkoutResult.StdOut, checkoutCommand, stopwatch.Elapsed);
         }
 
         if (!ShouldSyncBeforeBuild(step))
         {
             stopwatch.Stop();
-            return BuildResult(step, checkoutResult, checkoutResult.StdOut, stopwatch.Elapsed);
+            return BuildResult(step, checkoutResult, checkoutResult.StdOut, checkoutCommand, stopwatch.Elapsed);
         }
 
-        var pullResult = await _processRunner.RunAsync("git pull", context.ProjectPath);
+        const string pullCommand = "git pull";
+        var pullResult = await _processRunner.RunAsync(pullCommand, context.ProjectPath);
         stopwatch.Stop();
 
-        return BuildResult(step, pullResult, checkoutResult.StdOut + pullResult.StdOut, stopwatch.Elapsed);
+        return BuildResult(step, pullResult, checkoutResult.StdOut + pullResult.StdOut, $"{checkoutCommand} && {pullCommand}", stopwatch.Elapsed);
     }
 
     private static string? ResolveBranch(DeployStep step, StepExecutionContext context) =>
@@ -74,13 +76,14 @@ public class GitCheckoutExecutor : IStepExecutor
         Duration = duration
     };
 
-    private static StepResult BuildResult(DeployStep step, ProcessRunResult run, string output, TimeSpan duration) => new()
+    private static StepResult BuildResult(DeployStep step, ProcessRunResult run, string output, string command, TimeSpan duration) => new()
     {
         Step = step,
         Success = run.ExitCode == 0,
         ExitCode = run.ExitCode,
         Output = output,
         Error = run.StdErr,
+        Command = command,
         Duration = duration
     };
 }

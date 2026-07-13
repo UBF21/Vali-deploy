@@ -36,6 +36,7 @@ public class GitCheckoutExecutorTests
 
         Assert.True(result.Success);
         processRunner.Verify(p => p.RunAsync("git pull", "/tmp/proj", null, null), Times.Once);
+        Assert.Equal("git checkout develop && git pull", result.Command);
     }
 
     [Fact]
@@ -74,6 +75,7 @@ public class GitCheckoutExecutorTests
 
         Assert.True(result.Success);
         processRunner.Verify(p => p.RunAsync("git pull", It.IsAny<string>(), null, null), Times.Never);
+        Assert.Equal("git checkout main", result.Command);
     }
 
     [Fact]

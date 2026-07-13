@@ -231,6 +231,46 @@ public class ZipPublishExecutorTests
     }
 
     [Fact]
+    public async Task Command_concatenates_only_bin_and_obj_when_the_second_cleanup_command_fails()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var tempDir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            var processRunner = new Mock<IProcessRunner>();
+            var callOrder = new List<string>();
+
+            processRunner
+                .Setup(p => p.RunAsync(It.IsAny<string>(), tempDir, null, null))
+                .Callback<string, string, IDictionary<string, string>?, string?>((cmd, _, _, _) => callOrder.Add(cmd))
+                .ReturnsAsync((string cmd, string _, IDictionary<string, string>? _, string? _) =>
+                    cmd.Contains("obj")
+                        ? new ProcessRunResult(5, "", "Acceso denegado: archivo en uso")
+                        : new ProcessRunResult(0, "", ""));
+
+            var executor = new ZipPublishExecutor(processRunner.Object);
+            var step = new DeployStep { Type = StepType.ZipPublishOutput, Name = "publish" };
+
+            var result = await executor.ExecuteAsync(step, Context(tempDir));
+
+            Assert.False(result.Success);
+            Assert.Equal(5, result.ExitCode);
+            // "bin" (1er comando de limpieza) sí llegó a correr y tuvo éxito, "obj" (2do) corrió y falló:
+            // ambos deben quedar concatenados en Command. "dotnet clean"/"build"/"publish" nunca corrieron,
+            // así que no deben aparecer -Command solo refleja lo que REALMENTE se ejecutó.
+            Assert.Equal("if exist bin rmdir /s /q bin && if exist obj rmdir /s /q obj", result.Command);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Windows_rmdir_exit_code_does_not_reflect_locked_file_failures_even_when_unchained()
     {
         if (!OperatingSystem.IsWindows())
@@ -309,6 +349,12 @@ public class ZipPublishExecutorTests
         Assert.Equal(2, Directory.EnumerateFiles(publishFolder).Count());
         var zipFiles = Directory.EnumerateFiles(Path.GetDirectoryName(publishFolder)!, "sub-*.zip").ToList();
         Assert.Single(zipFiles);
+        // Los 4 comandos (limpieza + clean + build + publish, con "bin"/"obj" separados en Windows) corrieron
+        // y deben quedar todos concatenados con " && " en Command, en orden.
+        var expectedCleanCommands = OperatingSystem.IsWindows()
+            ? "if exist bin rmdir /s /q bin && if exist obj rmdir /s /q obj"
+            : "rm -rf bin; rm -rf obj";
+        Assert.Equal($"{expectedCleanCommands} && dotnet clean && dotnet build && dotnet publish -c Release", result.Command);
     }
 
     [Fact]

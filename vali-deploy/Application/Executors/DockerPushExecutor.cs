@@ -24,28 +24,32 @@ public class DockerPushExecutor : IStepExecutor
         var registryTag = step.Args["RegistryTag"];
         var extraEnv = new Dictionary<string, string> { ["DOCKER_BUILDKIT"] = "1" };
 
-        var loginRun = await TryLoginAsync(step, context, extraEnv);
-        if (loginRun != null && loginRun.ExitCode != 0)
+        var loginCommand = await TryLoginAsync(step, context, extraEnv);
+        if (loginCommand.Run != null && loginCommand.Run.ExitCode != 0)
         {
             stopwatch.Stop();
-            return BuildResult(step, loginRun, loginRun.StdOut, stopwatch.Elapsed);
+            return BuildResult(step, loginCommand.Run, loginCommand.Run.StdOut, loginCommand.Command ?? "", stopwatch.Elapsed);
         }
 
-        var tagRun = await _processRunner.RunAsync($"docker tag {imageTag} {registryTag}", context.ProjectPath, extraEnv);
+        var tagCommand = $"docker tag {imageTag} {registryTag}";
+        var tagRun = await _processRunner.RunAsync(tagCommand, context.ProjectPath, extraEnv);
 
         if (tagRun.ExitCode != 0)
         {
             stopwatch.Stop();
-            return BuildResult(step, tagRun, tagRun.StdOut, stopwatch.Elapsed);
+            var commandSoFar = loginCommand.Command != null ? $"{loginCommand.Command} && {tagCommand}" : tagCommand;
+            return BuildResult(step, tagRun, tagRun.StdOut, commandSoFar, stopwatch.Elapsed);
         }
 
-        var pushRun = await _processRunner.RunAsync($"docker push {registryTag}", context.ProjectPath, extraEnv);
+        var pushCommand = $"docker push {registryTag}";
+        var pushRun = await _processRunner.RunAsync(pushCommand, context.ProjectPath, extraEnv);
         stopwatch.Stop();
 
-        return BuildResult(step, pushRun, tagRun.StdOut + pushRun.StdOut, stopwatch.Elapsed);
+        var fullCommand = loginCommand.Command != null ? $"{loginCommand.Command} && {tagCommand} && {pushCommand}" : $"{tagCommand} && {pushCommand}";
+        return BuildResult(step, pushRun, tagRun.StdOut + pushRun.StdOut, fullCommand, stopwatch.Elapsed);
     }
 
-    private async Task<ProcessRunResult?> TryLoginAsync(DeployStep step, StepExecutionContext context, IDictionary<string, string> extraEnv)
+    private async Task<(ProcessRunResult? Run, string? Command)> TryLoginAsync(DeployStep step, StepExecutionContext context, IDictionary<string, string> extraEnv)
     {
         var registryHost = step.Args.GetValueOrDefault("RegistryHost", "");
         var registryUsername = step.Args.GetValueOrDefault("RegistryUsername", "");
@@ -53,7 +57,7 @@ public class DockerPushExecutor : IStepExecutor
 
         if (string.IsNullOrEmpty(registryTokenEnvVar))
         {
-            return null;
+            return (null, null);
         }
 
         var token = _secretResolver.Resolve(registryTokenEnvVar);
@@ -61,16 +65,18 @@ public class DockerPushExecutor : IStepExecutor
             ? $"docker login -u {registryUsername} --password-stdin"
             : $"docker login {registryHost} -u {registryUsername} --password-stdin";
 
-        return await _processRunner.RunAsync(loginCommand, context.ProjectPath, extraEnv, token);
+        var run = await _processRunner.RunAsync(loginCommand, context.ProjectPath, extraEnv, token);
+        return (run, loginCommand);
     }
 
-    private static StepResult BuildResult(DeployStep step, ProcessRunResult run, string output, TimeSpan duration) => new()
+    private static StepResult BuildResult(DeployStep step, ProcessRunResult run, string output, string command, TimeSpan duration) => new()
     {
         Step = step,
         Success = run.ExitCode == 0,
         ExitCode = run.ExitCode,
         Output = output,
         Error = run.StdErr,
+        Command = command,
         Duration = duration
     };
 }

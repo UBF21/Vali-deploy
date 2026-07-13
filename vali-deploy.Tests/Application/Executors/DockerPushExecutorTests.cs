@@ -44,6 +44,7 @@ public class DockerPushExecutorTests
         processRunner.Verify(p => p.RunAsync(It.Is<string>(c => c.StartsWith("docker login")), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<string>()), Times.Never);
         processRunner.Verify(p => p.RunAsync("docker tag proj-sub:latest myuser/proj-sub:latest", "/tmp/proj", It.IsAny<IDictionary<string, string>>(), null), Times.Once);
         processRunner.Verify(p => p.RunAsync("docker push myuser/proj-sub:latest", "/tmp/proj", It.IsAny<IDictionary<string, string>>(), null), Times.Once);
+        Assert.Equal("docker tag proj-sub:latest myuser/proj-sub:latest && docker push myuser/proj-sub:latest", result.Command);
     }
 
     [Fact]
@@ -78,6 +79,9 @@ public class DockerPushExecutorTests
 
         Assert.True(result.Success);
         processRunner.Verify(p => p.RunAsync("docker login ghcr.io -u myorg --password-stdin", "/tmp/proj", It.IsAny<IDictionary<string, string>>(), "resolved-token"), Times.Once);
+        Assert.Equal(
+            "docker login ghcr.io -u myorg --password-stdin && docker tag proj-sub:latest ghcr.io/myorg/proj-sub:latest && docker push ghcr.io/myorg/proj-sub:latest",
+            result.Command);
     }
 
     [Fact]
@@ -106,6 +110,7 @@ public class DockerPushExecutorTests
 
         Assert.False(result.Success);
         processRunner.Verify(p => p.RunAsync(It.Is<string>(c => c.StartsWith("docker tag")), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<string>()), Times.Never);
+        Assert.Equal("docker login ghcr.io -u myorg --password-stdin", result.Command);
     }
 
     [Fact]
@@ -127,5 +132,6 @@ public class DockerPushExecutorTests
 
         Assert.False(result.Success);
         processRunner.Verify(p => p.RunAsync(It.Is<string>(c => c.StartsWith("docker push")), It.IsAny<string>(), It.IsAny<IDictionary<string, string>>(), It.IsAny<string>()), Times.Never);
+        Assert.Equal("docker tag proj-sub:latest myuser/proj-sub:latest", result.Command);
     }
 }

@@ -26,16 +26,18 @@ public class ZipPublishExecutor : IStepExecutor
         }
 
         var combinedOutput = new StringBuilder();
+        var executedCommands = new List<string>();
 
         foreach (var command in BuildCommands(step))
         {
+            executedCommands.Add(command);
             var run = await _processRunner.RunAsync(command, context.ProjectPath);
             combinedOutput.AppendLine(run.StdOut);
 
             if (run.ExitCode != 0)
             {
                 stopwatch.Stop();
-                return FailureResult(step, run, combinedOutput.ToString(), stopwatch.Elapsed);
+                return FailureResult(step, run, combinedOutput.ToString(), string.Join(" && ", executedCommands), stopwatch.Elapsed);
             }
         }
 
@@ -43,7 +45,7 @@ public class ZipPublishExecutor : IStepExecutor
         if (publishFolder == null)
         {
             stopwatch.Stop();
-            return PublishFolderNotFoundResult(step, combinedOutput.ToString(), stopwatch.Elapsed);
+            return PublishFolderNotFoundResult(step, combinedOutput.ToString(), string.Join(" && ", executedCommands), stopwatch.Elapsed);
         }
 
         var omitFiles = ParseOmitFiles(step);
@@ -52,7 +54,7 @@ public class ZipPublishExecutor : IStepExecutor
         context.LastArtifactPath = zipPath;
 
         stopwatch.Stop();
-        return SuccessResult(step, combinedOutput.ToString(), stopwatch.Elapsed);
+        return SuccessResult(step, combinedOutput.ToString(), string.Join(" && ", executedCommands), stopwatch.Elapsed);
     }
 
     private static string[] BuildCommands(DeployStep step)
@@ -122,20 +124,20 @@ public class ZipPublishExecutor : IStepExecutor
         Error = $"El path del proyecto no existe: {path}", Duration = duration
     };
 
-    private static StepResult PublishFolderNotFoundResult(DeployStep step, string output, TimeSpan duration) => new()
+    private static StepResult PublishFolderNotFoundResult(DeployStep step, string output, string command, TimeSpan duration) => new()
     {
         Step = step, Success = false, ExitCode = -1,
         Output = output, Error = "No se encontró la carpeta 'publish' dentro de bin/Release tras el build.",
-        Duration = duration
+        Command = command, Duration = duration
     };
 
-    private static StepResult FailureResult(DeployStep step, ProcessRunResult run, string output, TimeSpan duration) => new()
+    private static StepResult FailureResult(DeployStep step, ProcessRunResult run, string output, string command, TimeSpan duration) => new()
     {
-        Step = step, Success = false, ExitCode = run.ExitCode, Output = output, Error = run.StdErr, Duration = duration
+        Step = step, Success = false, ExitCode = run.ExitCode, Output = output, Error = run.StdErr, Command = command, Duration = duration
     };
 
-    private static StepResult SuccessResult(DeployStep step, string output, TimeSpan duration) => new()
+    private static StepResult SuccessResult(DeployStep step, string output, string command, TimeSpan duration) => new()
     {
-        Step = step, Success = true, ExitCode = 0, Output = output, Duration = duration
+        Step = step, Success = true, ExitCode = 0, Output = output, Command = command, Duration = duration
     };
 }
