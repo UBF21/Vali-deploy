@@ -38,6 +38,7 @@ public class SshCommandExecutorTests
         var result = await executor.ExecuteAsync(step, ContextWithServer(RemoteOs.Linux));
 
         Assert.True(result.Success);
+        Assert.Equal("systemctl restart myapp", result.Command);
     }
 
     [Fact]

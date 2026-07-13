@@ -31,6 +31,7 @@ public class RawCommandExecutor : IStepExecutor
             ExitCode = run.ExitCode,
             Output = run.StdOut,
             Error = run.StdErr,
+            Command = command,
             Duration = stopwatch.Elapsed
         };
     }

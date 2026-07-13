@@ -32,6 +32,7 @@ public class RawCommandExecutorTests
         var result = await executor.ExecuteAsync(step, context);
 
         Assert.True(result.Success);
+        Assert.Equal("echo custom", result.Command);
     }
 
     [Fact]

@@ -30,6 +30,6 @@ public class SshCommandExecutor : IStepExecutor
         var run = await _sshClientFactory.RunCommandAsync(context.Environment.Server, command);
         stopwatch.Stop();
 
-        return StepResultFactory.FromProcessResult(step, run, stopwatch.Elapsed);
+        return StepResultFactory.FromProcessResult(step, run, command, stopwatch.Elapsed);
     }
 }

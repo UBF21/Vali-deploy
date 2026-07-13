@@ -37,6 +37,7 @@ public class LocalCommandExecutorTests
         Assert.True(result.Success);
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("Build succeeded", result.Output);
+        Assert.Equal("dotnet build", result.Command);
     }
 
     [Fact]
@@ -54,6 +55,7 @@ public class LocalCommandExecutorTests
         Assert.False(result.Success);
         Assert.Equal(1, result.ExitCode);
         Assert.Contains("error CS0000", result.Error);
+        Assert.Equal("dotnet build", result.Command);
     }
 
     [Fact]
