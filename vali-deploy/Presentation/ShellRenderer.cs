@@ -16,10 +16,9 @@ public static class ShellRenderer
     public static void DrawHeader(IReadOnlyDictionary<string, Project> projects, string? breadcrumb = null)
     {
         var currentVersion = Util.GetCurrentVersion();
-        var subProjectCount = projects.Values.Sum(p => p.SubProjects.Count);
 
         var status = breadcrumb is null
-            ? $"{projects.Count} proyectos · {subProjectCount} subproyectos"
+            ? $"{projects.Count} proyectos"
             : Markup.Escape(breadcrumb);
 
         var grid = new Grid()
