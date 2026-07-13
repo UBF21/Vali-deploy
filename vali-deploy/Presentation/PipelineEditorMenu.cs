@@ -79,7 +79,13 @@ public static class PipelineEditorMenu
                 else
                 {
                     configSubProject.DockerRegistry ??= ResolveDockerRegistry();
-                    configSubProject.PipelinesByEnvironment[environmentName] = factory.CreateDockerComposeTemplate(projectName, configSubProject.Name, remoteDeployPath, composeFileName, configSubProject.DockerRegistry);
+                    if (configSubProject.DockerRegistry == null)
+                    {
+                        AnsiConsole.MarkupLine("[yellow]Cancelado. No se configuró el registry.[/]");
+                        return;
+                    }
+
+                    configSubProject.PipelinesByEnvironment[environmentName] = factory.CreateDockerComposeTemplate(projectName, configSubProject.Name, remoteDeployPath, composeFileName!, configSubProject.DockerRegistry);
                 }
             }
             else
@@ -213,11 +219,16 @@ public static class PipelineEditorMenu
 
     /// <summary>
     /// Pide los datos de un DockerRegistry (host, usuario, token) — misma redacción que ya usa el
-    /// menú legacy "Push to registry" en MenuManager.cs, para no tener dos formas distintas de
-    /// preguntar lo mismo en el mismo CLI.
+    /// menú legacy "Push to registry" en MenuManager.cs. Devuelve null si el usuario decide no
+    /// configurarlo ahora.
     /// </summary>
-    private static DockerRegistry ResolveDockerRegistry()
+    private static DockerRegistry? ResolveDockerRegistry()
     {
+        if (!AnsiConsole.Confirm("¿Configurar el registry ahora?", true))
+        {
+            return null;
+        }
+
         var username = AnsiConsole.Ask<string>("Usuario del registry (ej. tu usuario de Docker Hub):");
         var host = AnsiConsole.Ask("Host del registry (vacío = Docker Hub):", "");
         var hasToken = AnsiConsole.Confirm("¿Vas a autenticarte con un token vía variable de entorno?");
