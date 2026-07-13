@@ -567,6 +567,12 @@ public static class MenuManager
     /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task ManageSubProjectFilesFromPublishAsync(Project project, string projectName)
     {
+        if (project.SubProjects.Count == 1)
+        {
+            await ConfigurePublishFileOmissionsForSubProjectAsync(project.SubProjects[0], projectName);
+            return;
+        }
+
         while (true)
         {
             var subProject = await SelectSubProjectAsync(project, projectName);
@@ -590,11 +596,6 @@ public static class MenuManager
                 $"[yellow]:warning: No subprojects found for project '{Markup.Escape(projectName)}'.[/]");
             await Task.CompletedTask;
             return null;
-        }
-
-        if (project.SubProjects.Count == 1)
-        {
-            return project.SubProjects[0];
         }
 
         var subProjectName = AnsiConsole.Prompt(
@@ -1037,23 +1038,20 @@ public static class MenuManager
                 return;
             }
 
-            SubProject subProject;
             if (dockerSubProjects.Count == 1)
             {
-                subProject = dockerSubProjects[0];
-            }
-            else
-            {
-                var subProjectName = AnsiConsole.Prompt(
-                    new SelectionPrompt<string>()
-                        .TranslatedFormat("Select a Docker subproject in '{0}'", projectName)
-                        .AddChoices(dockerSubProjects.Select(sp => sp.Name).Append("[seagreen1]Back to Projects[/]"))
-                );
-
-                if (subProjectName == "[seagreen1]Back to Projects[/]") return;
-                subProject = dockerSubProjects.First(sp => sp.Name == subProjectName);
+                await ManageDockerArgsAsync(dockerSubProjects[0], projectName);
+                return;
             }
 
+            var subProjectName = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .TranslatedFormat("Select a Docker subproject in '{0}'", projectName)
+                    .AddChoices(dockerSubProjects.Select(sp => sp.Name).Append("[seagreen1]Back to Projects[/]"))
+            );
+
+            if (subProjectName == "[seagreen1]Back to Projects[/]") return;
+            var subProject = dockerSubProjects.First(sp => sp.Name == subProjectName);
             await ManageDockerArgsAsync(subProject, projectName);
         }
     }
@@ -1382,23 +1380,20 @@ public static class MenuManager
                 return;
             }
 
-            SubProject subProject;
             if (project.SubProjects.Count == 1)
             {
-                subProject = project.SubProjects[0];
-            }
-            else
-            {
-                var subProjectName = AnsiConsole.Prompt(
-                    new SelectionPrompt<string>()
-                        .TranslatedFormat("Select a subproject in '{0}' to manage publish arguments", projectName)
-                        .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[seagreen1]Back to Projects[/]"))
-                );
-
-                if (subProjectName == "[seagreen1]Back to Projects[/]") return;
-                subProject = project.SubProjects.First(sp => sp.Name == subProjectName);
+                await ManagePublishArgsAsync(project.SubProjects[0], projectName);
+                return;
             }
 
+            var subProjectName = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .TranslatedFormat("Select a subproject in '{0}' to manage publish arguments", projectName)
+                    .AddChoices(project.SubProjects.Select(sp => sp.Name).Append("[seagreen1]Back to Projects[/]"))
+            );
+
+            if (subProjectName == "[seagreen1]Back to Projects[/]") return;
+            var subProject = project.SubProjects.First(sp => sp.Name == subProjectName);
             await ManagePublishArgsAsync(subProject, projectName);
         }
     }

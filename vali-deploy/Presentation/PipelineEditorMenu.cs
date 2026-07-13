@@ -85,7 +85,7 @@ public static class PipelineEditorMenu
                         return;
                     }
 
-                    configSubProject.PipelinesByEnvironment[environmentName] = factory.CreateDockerComposeTemplate(projectName, configSubProject.Name, remoteDeployPath, composeFileName!, configSubProject.DockerRegistry);
+                    configSubProject.PipelinesByEnvironment[environmentName] = factory.CreateDockerComposeTemplate(projectName, configSubProject.Name, remoteDeployPath, composeFileName, configSubProject.DockerRegistry);
                 }
             }
             else
