@@ -13,10 +13,10 @@ internal static class StepResultFactory
             Duration = duration
         };
 
-    public static StepResult FromProcessResult(DeployStep step, ProcessRunResult run, TimeSpan duration) =>
+    public static StepResult FromProcessResult(DeployStep step, ProcessRunResult run, string command, TimeSpan duration) =>
         new()
         {
             Step = step, Success = run.ExitCode == 0, ExitCode = run.ExitCode,
-            Output = run.StdOut, Error = run.StdErr, Duration = duration
+            Output = run.StdOut, Error = run.StdErr, Command = command, Duration = duration
         };
 }

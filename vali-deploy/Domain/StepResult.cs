@@ -7,6 +7,7 @@ public class StepResult
     public int ExitCode { get; set; }
     public string Output { get; set; } = "";
     public string Error { get; set; } = "";
+    public string Command { get; set; } = "";
     public TimeSpan Duration { get; set; }
     public int AttemptNumber { get; set; } = 1;
     public bool WasSkippedDueToContinueOnFailure { get; set; } = false;
