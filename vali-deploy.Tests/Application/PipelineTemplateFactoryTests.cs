@@ -137,8 +137,20 @@ public class PipelineTemplateFactoryTests
 
         Assert.Equal(new[]
         {
-            StepType.SshCommand, StepType.DockerComposeBuild, StepType.DockerComposeUp
+            StepType.SshCommand, StepType.DockerComposeBuild, StepType.DockerComposeUp, StepType.SshCommand
         }, steps.Select(s => s.Type));
+    }
+
+    [Fact]
+    public void CreateDockerComposeRemoteBuildTemplate_prunes_dangling_images_after_up()
+    {
+        var factory = new PipelineTemplateFactory();
+
+        var steps = factory.CreateDockerComposeRemoteBuildTemplate(remoteDeployPath: "/opt/shop-api", composeFileName: "docker-compose.yml");
+        var pruneStep = steps.Last();
+
+        Assert.Equal(StepType.SshCommand, pruneStep.Type);
+        Assert.Equal("docker image prune -f", pruneStep.Args["Command"]);
     }
 
     [Fact]
@@ -147,7 +159,7 @@ public class PipelineTemplateFactoryTests
         var factory = new PipelineTemplateFactory();
 
         var steps = factory.CreateDockerComposeRemoteBuildTemplate(remoteDeployPath: "/opt/shop-api", composeFileName: "docker-compose.yml");
-        var gitStep = steps.Single(s => s.Type == StepType.SshCommand);
+        var gitStep = steps.First(s => s.Type == StepType.SshCommand);
 
         Assert.Equal("cd \"/opt/shop-api\" && git pull", gitStep.Args["Command"]);
     }
